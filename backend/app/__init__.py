@@ -12,9 +12,12 @@ def create_app(config_class=Config):
     db.init_app(app)
     cors.init_app(app)
 
-    # Registra os blueprints
-    from .api.routes import api_bp
-    app.register_blueprint(api_bp, url_prefix="/api")
+    # Registra os blueprints modularizados
+    from .api.endpoints.status import status_bp
+    from .api.endpoints.clientes import clientes_bp
+    
+    app.register_blueprint(status_bp, url_prefix="/api/status")
+    app.register_blueprint(clientes_bp, url_prefix="/api/clientes")
 
     # Cria as tabelas do banco de dados (Apenas para desenvolvimento inicial)
     with app.app_context():

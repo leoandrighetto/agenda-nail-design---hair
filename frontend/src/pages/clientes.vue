@@ -2,8 +2,8 @@
   <v-container>
     <v-row class="mb-4 align-center">
       <v-col>
-        <h1 class="text-h4 font-weight-bold text-primary">Clientes</h1>
-        <p class="text-subtitle-1 text-grey-darken-1">Gerencie os clientes do seu salão</p>
+        <h1 class="text-h4 font-weight-bold text-primary">Minhas Clientes</h1>
+        <p class="text-subtitle-1 text-grey-darken-1">Gerencie as clientes do salão</p>
       </v-col>
       <v-col cols="auto">
         <v-btn color="primary" prepend-icon="mdi-plus" @click="openDialog" size="large" elevation="2">
@@ -57,7 +57,7 @@
                 <v-text-field
                   v-model="editedItem.nome"
                   label="Nome completo *"
-                  :rules="[v => !!v || 'Nome é obrigatório']"
+                  :rules="nameRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-account"
@@ -66,22 +66,29 @@
               </v-col>
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model="editedItem.telefone"
+                  :model-value="editedItem.telefone"
+                  @update:model-value="val => editedItem.telefone = formatPhone(val)"
                   label="Telefone *"
-                  :rules="[v => !!v || 'Telefone é obrigatório']"
+                  :rules="phoneRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-phone"
+                  placeholder="(00) 00000-0000"
                   required
+                  maxlength="15"
                 ></v-text-field>
               </v-col>
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model="editedItem.cpf"
+                  :model-value="editedItem.cpf"
+                  @update:model-value="val => editedItem.cpf = formatCPF(val)"
                   label="CPF"
+                  :rules="cpfRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-card-account-details"
+                  placeholder="000.000.000-00"
+                  maxlength="14"
                 ></v-text-field>
               </v-col>
               <v-col cols="12" sm="6">
@@ -89,19 +96,28 @@
                   v-model="editedItem.email"
                   label="E-mail"
                   type="email"
+                  :rules="emailRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-email"
                 ></v-text-field>
               </v-col>
               <v-col cols="12">
-                <v-text-field
+                <v-combobox
                   v-model="editedItem.endereco"
+                  v-model:search="addressSearch"
+                  :items="addressSuggestions"
+                  :loading="addressLoading"
+                  item-title="formatted_address"
+                  item-value="formatted_address"
                   label="Endereço"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-map-marker"
-                ></v-text-field>
+                  hide-no-data
+                  clearable
+                  @update:search="fetchAddressSuggestions"
+                ></v-combobox>
               </v-col>
             </v-row>
           </v-form>
@@ -144,6 +160,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { fetchNominatimAddress } from '../services/nominatimService'
 
 const apiBase = 'http://127.0.0.1:5000/api'
 
@@ -156,6 +173,12 @@ const dialogDelete = ref(false)
 const valid = ref(false)
 const form = ref(null)
 
+// Estado Nominatim (Endereço)
+const addressSearch = ref('')
+const addressSuggestions = ref([])
+const addressLoading = ref(false)
+let addressTimeout = null
+
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
@@ -163,6 +186,7 @@ const snackbarColor = ref('success')
 const headers = [
   { title: 'Nome', key: 'nome', align: 'start', sortable: true },
   { title: 'Telefone', key: 'telefone', sortable: false },
+  { title: 'Endereço', key: 'endereco', sortable: false },
   { title: 'E-mail', key: 'email', sortable: false },
   { title: 'Ações', key: 'acoes', sortable: false, align: 'end', width: '120px' },
 ]
@@ -182,6 +206,75 @@ const formTitle = computed(() => {
   return editedItem.value.id ? 'Editar Cliente' : 'Novo Cliente'
 })
 
+// Máscaras de formatação
+const formatPhone = (val) => {
+  if (!val) return ''
+  let v = val.replace(/\D/g, '')
+  if (v.length > 11) v = v.substring(0, 11)
+  
+  if (v.length <= 2) {
+    return v.length > 0 ? `(${v}` : v
+  } else if (v.length <= 7) {
+    return `(${v.substring(0, 2)}) ${v.substring(2)}`
+  } else {
+    return `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`
+  }
+}
+
+const formatCPF = (val) => {
+  if (!val) return ''
+  let v = val.replace(/\D/g, '')
+  if (v.length > 11) v = v.substring(0, 11)
+  
+  if (v.length <= 3) {
+    return v
+  } else if (v.length <= 6) {
+    return `${v.substring(0, 3)}.${v.substring(3)}`
+  } else if (v.length <= 9) {
+    return `${v.substring(0, 3)}.${v.substring(3, 6)}.${v.substring(6)}`
+  } else {
+    return `${v.substring(0, 3)}.${v.substring(3, 6)}.${v.substring(6, 9)}-${v.substring(9)}`
+  }
+}
+
+// Regras de Validação
+const nameRules = [
+  v => !!v || 'Nome é obrigatório',
+  v => /^[a-zA-ZÀ-ÿ\s]+$/.test(v) || 'Nome deve conter apenas letras e espaços'
+]
+
+const phoneRules = [
+  v => !!v || 'Telefone é obrigatório',
+  v => (v && v.replace(/\D/g, '').length === 11) || 'Telefone deve ter 11 dígitos'
+]
+
+const cpfRules = [
+  v => !v || v.replace(/\D/g, '').length === 11 || 'CPF deve ter 11 dígitos'
+]
+
+const emailRules = [
+  v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido'
+]
+
+// Busca Inteligente de Endereço (Nominatim OpenStreetMap via Service)
+const fetchAddressSuggestions = (query) => {
+  if (!query || query.length < 4) {
+    addressSuggestions.value = []
+    return
+  }
+  
+  if (addressTimeout) clearTimeout(addressTimeout)
+  
+  addressTimeout = setTimeout(async () => {
+    addressLoading.value = true
+    try {
+      addressSuggestions.value = await fetchNominatimAddress(query)
+    } finally {
+      addressLoading.value = false
+    }
+  }, 300) // Reduzido agressivamente para 300ms
+}
+
 // Métodos
 const showMessage = (text, color = 'success') => {
   snackbarText.value = text
@@ -194,7 +287,12 @@ const fetchClientes = async () => {
   try {
     const res = await fetch(`${apiBase}/clientes`)
     if (res.ok) {
-      clientes.value = await res.json()
+      const data = await res.json()
+      clientes.value = data.map(c => ({
+        ...c,
+        telefone: formatPhone(c.telefone),
+        cpf: formatCPF(c.cpf)
+      }))
     } else {
       showMessage('Erro ao buscar clientes', 'error')
     }
@@ -213,6 +311,9 @@ const openDialog = () => {
 
 const editItem = (item) => {
   editedItem.value = Object.assign({}, item)
+  // Certificar-se que a máscara está aplicada ao editar
+  editedItem.value.telefone = formatPhone(editedItem.value.telefone)
+  editedItem.value.cpf = formatCPF(editedItem.value.cpf)
   dialog.value = true
 }
 
@@ -263,11 +364,22 @@ const save = async () => {
     ? `${apiBase}/clientes/${editedItem.value.id}` 
     : `${apiBase}/clientes`
 
+  // Remover máscara para enviar apenas números ao backend e sanitizar o endereço (String)
+  const addressVal = editedItem.value.endereco
+  const payload = {
+    ...editedItem.value,
+    telefone: editedItem.value.telefone ? String(editedItem.value.telefone).replace(/\D/g, '') : '',
+    cpf: editedItem.value.cpf ? String(editedItem.value.cpf).replace(/\D/g, '') : null,
+    endereco: (typeof addressVal === 'object' && addressVal !== null) 
+                ? (addressVal.formatted_address || addressVal.display_name || '')
+                : (addressVal || '')
+  }
+
   try {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editedItem.value)
+      body: JSON.stringify(payload)
     })
     
     if (res.ok) {

@@ -8,9 +8,10 @@ __pycache__/
 .env.*
 *.sqlite3
 *.db
+*.db-wal
+*.db-shm
 instance/
-tests/
-backend/tests/
+.pytest_cache/
 
 # Node
 node_modules/

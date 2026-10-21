@@ -1,19 +1,28 @@
-""" Modelo da entidade Pagamento para controle financeiro dos cursos e alunos. """
+""" Modelo da entidade Pagamento para controle financeiro dos cursos e matrículas. """
 from app.extensions import db
 
 # opções válidas para os campos do tipo enum no banco de dados
 TIPOS_COBRANCA = ("MATRICULA", "MENSALIDADE", "TAXA_EXTRA")
 STATUS_PAGAMENTO = ("PENDENTE", "PAGO", "ATRASADO", "CANCELADO")
-FORMAS_PAGAMENTO = ("PIX", "CARTAO", "BOLETO")
+FORMAS_PAGAMENTO = (
+    "PIX",
+    "DINHEIRO",
+    "CARTAO",
+    "CARTAO_CREDITO",
+    "CARTAO_DEBITO",
+    "BOLETO",
+    "TRANSFERENCIA",
+)
 
 
 class Pagamento(db.Model):
-    """ Entidade responsável por registrar cobranças e pagamentos de alunos em cursos. """
+    """ Entidade responsável por registrar cobranças e pagamentos de alunos em cursos/matrículas. """
     __tablename__ = "pagamentos"
 
     id = db.Column(db.Integer, primary_key=True)
     aluno_id = db.Column(db.Integer, db.ForeignKey("pessoas.id"), nullable=False)
     curso_id = db.Column(db.Integer, db.ForeignKey("cursos.id"), nullable=False)
+    matricula_id = db.Column(db.Integer, db.ForeignKey("matriculas.id"), nullable=True)
 
     tipo_cobranca = db.Column(
         db.Enum(*TIPOS_COBRANCA, name="tipo_cobranca_enum"),
@@ -35,6 +44,7 @@ class Pagamento(db.Model):
         nullable=True,
     )
 
-    # relacionamentos com aluno/pessoa (1:N) e curso (1:N)
+    # relacionamentos com aluno/pessoa (1:N), curso (1:N) e matrícula (1:N)
     aluno = db.relationship("Pessoa", backref=db.backref("pagamentos", lazy=True))
     curso = db.relationship("Curso", backref=db.backref("pagamentos", lazy=True))
+    matricula_rel = db.relationship("Matricula", backref=db.backref("pagamentos", lazy=True))

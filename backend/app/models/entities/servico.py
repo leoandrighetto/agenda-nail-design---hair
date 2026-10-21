@@ -24,7 +24,7 @@ class Servico(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.Text, nullable=True)
     duracao_minutos = db.Column(db.Integer, nullable=False, default=30)
-    preco = db.Column(db.Float, nullable=True)
+    preco = db.Column(db.Numeric(10, 2), nullable=True)
 
     # relacionamentos muitos-para-muitos com materiais e equipamentos
     materiais = db.relationship(
@@ -37,4 +37,3 @@ class Servico(db.Model):
         secondary=servico_equipamento,
         backref=db.backref("servicos", lazy=True),
     )
-

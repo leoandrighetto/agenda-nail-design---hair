@@ -28,3 +28,8 @@ class Pessoa(db.Model):
     __table_args__ = (
         db.UniqueConstraint("matricula", name="uq_pessoas_matricula"),
     )
+
+    @property
+    def cursos(self):
+        """ Retorna os cursos nos quais a pessoa possui matrícula vinculada. """
+        return [m.curso for m in getattr(self, "matriculas", []) if m.curso is not None]

@@ -58,6 +58,7 @@ def create_app(config_class=Config):
     from .api.endpoints.servicos import servicos_bp
     from .api.endpoints.modalidades import modalidades_bp
     from .api.endpoints.cursos import cursos_bp
+    from .api.endpoints.matriculas import matriculas_bp
     from .api.endpoints.pagamentos import pagamentos_bp
     from .api.endpoints.agendamentos import agendamentos_bp
 
@@ -69,6 +70,7 @@ def create_app(config_class=Config):
     app.register_blueprint(servicos_bp, url_prefix="/api/servicos")
     app.register_blueprint(modalidades_bp, url_prefix="/api/modalidades")
     app.register_blueprint(cursos_bp, url_prefix="/api/cursos")
+    app.register_blueprint(matriculas_bp, url_prefix="/api/matriculas")
     app.register_blueprint(pagamentos_bp, url_prefix="/api/pagamentos")
     app.register_blueprint(agendamentos_bp, url_prefix="/api/agendamentos")
 

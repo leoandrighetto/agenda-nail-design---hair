@@ -36,7 +36,7 @@ def serializar_servico(servico):
         "nome": servico.nome,
         "descricao": servico.descricao,
         "duracao_minutos": servico.duracao_minutos,
-        "preco": servico.preco,
+        "preco": float(servico.preco) if servico.preco is not None else None,
         "materiais": materiais,
         "equipamentos": equipamentos,
         "recursos_disponiveis": materiais_ok and equipamentos_ok,
@@ -61,7 +61,7 @@ def criar_servico():
         nome=dados.get("nome"),
         descricao=dados.get("descricao"),
         duracao_minutos=dados.get("duracao_minutos", 30),
-        preco=dados.get("preco"),
+        preco=float(dados.get("preco")) if dados.get("preco") is not None else None,
     )
     db.session.add(novo_servico)
 
@@ -105,7 +105,7 @@ def atualizar_servico(servico_id):
     if "duracao_minutos" in dados and dados.get("duracao_minutos") is not None:
         servico.duracao_minutos = dados.get("duracao_minutos")
     if "preco" in dados:
-        servico.preco = dados.get("preco")
+        servico.preco = float(dados.get("preco")) if dados.get("preco") is not None else None
 
     if "materiais_ids" in dados:
         ids = dados.get("materiais_ids") or []

@@ -1,13 +1,41 @@
 """ Rotas para a gestão de cursos, matrículas de alunos e vínculo de modalidades. """
 from flask import Blueprint, jsonify, request
 from app.extensions import db
-from app.models import Curso, Aluno, Modalidade
+from app.models import Curso, Pessoa, Modalidade, Matricula
 
 cursos_bp = Blueprint("cursos", __name__)
 
 
-def serializar_curso(curso):
-    """ Converte um objeto Curso para dicionário. """
+def _sincronizar_matriculas_curso(curso: Curso, alunos_ids: list[int]):
+    """ Sincroniza matrículas de um curso caso uma lista de IDs de alunos seja enviada. """
+    alunos_validos = (
+        Pessoa.query.filter(Pessoa.id.in_(alunos_ids), Pessoa.eh_aluno.is_(True)).all()
+        if alunos_ids
+        else []
+    )
+    ids_desejados = {a.id for a in alunos_validos}
+    matriculas_atuais = {m.aluno_id: m for m in curso.matriculas}
+
+    # Remove matrículas que saíram da lista
+    for aluno_id, mat in list(matriculas_atuais.items()):
+        if aluno_id not in ids_desejados:
+            db.session.delete(mat)
+
+    # Cria matrículas para novos alunos adicionados
+    for aluno in alunos_validos:
+        if aluno.id not in matriculas_atuais:
+            nova_mat = Matricula(
+                aluno_id=aluno.id,
+                curso_id=curso.id,
+                valor_acordado=float(curso.valor_total),
+                horas_realizadas=0,
+                status="EM_ANDAMENTO",
+            )
+            db.session.add(nova_mat)
+
+
+def serializar_curso(curso: Curso) -> dict:
+    """ Converte um objeto Curso para dicionário incluindo modalidades e matrículas. """
     return {
         "id": curso.id,
         "nome": curso.nome,
@@ -18,6 +46,17 @@ def serializar_curso(curso):
         "ativo": curso.ativo,
         "valor_total": float(curso.valor_total) if curso.valor_total is not None else 0.0,
         "alunos": [{"id": a.id, "nome": a.nome, "matricula": a.matricula} for a in curso.alunos],
+        "matriculas": [
+            {
+                "id": m.id,
+                "aluno_id": m.aluno_id,
+                "aluno_nome": m.aluno.nome if m.aluno else None,
+                "horas_realizadas": m.horas_realizadas,
+                "valor_acordado": float(m.valor_acordado) if m.valor_acordado is not None else 0.0,
+                "status": m.status,
+            }
+            for m in curso.matriculas
+        ],
         "modalidades": [{"id": m.id, "nome": m.nome} for m in curso.modalidades],
     }
 
@@ -31,7 +70,7 @@ def get_cursos():
 
 @cursos_bp.route("", methods=["POST"])
 def criar_curso():
-    """ Cria um novo curso e vincula alunos e modalidades se informados. """
+    """ Cria um novo curso no catálogo e vincula alunos (via Matrícula) e modalidades se informados. """
     dados = request.get_json()
     if (
         not dados
@@ -52,10 +91,11 @@ def criar_curso():
         valor_total=float(dados.get("valor_total")),
     )
     db.session.add(novo_curso)
+    db.session.flush()
 
     alunos_ids = dados.get("alunos_ids", [])
     if alunos_ids:
-        novo_curso.alunos = Aluno.query.filter(Aluno.id.in_(alunos_ids)).all()
+        _sincronizar_matriculas_curso(novo_curso, alunos_ids)
 
     modalidades_ids = dados.get("modalidades_ids", [])
     if modalidades_ids:
@@ -78,7 +118,7 @@ def visualizar_curso(curso_id):
 
 @cursos_bp.route("/<int:curso_id>", methods=["PUT"])
 def atualizar_curso(curso_id):
-    """ Atualiza os dados, horas realizadas e vínculos de um curso existente. """
+    """ Atualiza os dados e vínculos de um curso existente. """
     curso = db.session.get(Curso, curso_id)
     if not curso:
         return jsonify({"erro": "Curso não encontrado"}), 404
@@ -101,7 +141,7 @@ def atualizar_curso(curso_id):
 
     if "alunos_ids" in dados:
         ids = dados.get("alunos_ids") or []
-        curso.alunos = Aluno.query.filter(Aluno.id.in_(ids)).all() if ids else []
+        _sincronizar_matriculas_curso(curso, ids)
 
     if "modalidades_ids" in dados:
         ids = dados.get("modalidades_ids") or []

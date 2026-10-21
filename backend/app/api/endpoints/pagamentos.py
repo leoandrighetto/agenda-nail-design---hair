@@ -1,8 +1,8 @@
-""" Rotas para o controle financeiro e gestão de pagamentos de cursos. """
+""" Rotas para o controle financeiro e gestão de pagamentos de cursos e matrículas. """
 from datetime import date
 from flask import Blueprint, jsonify, request
 from app.extensions import db
-from app.models import Pagamento, Aluno, Curso
+from app.models import Pagamento, Pessoa, Curso, Matricula
 from app.models.entities.pagamento import TIPOS_COBRANCA, STATUS_PAGAMENTO, FORMAS_PAGAMENTO
 
 pagamentos_bp = Blueprint("pagamentos", __name__)
@@ -15,7 +15,7 @@ def converter_data(valor_str):
     return date.fromisoformat(valor_str)
 
 
-def serializar_pagamento(pagamento):
+def serializar_pagamento(pagamento: Pagamento) -> dict:
     """ Converte um objeto Pagamento para dicionário. """
     return {
         "id": pagamento.id,
@@ -23,6 +23,7 @@ def serializar_pagamento(pagamento):
         "aluno_nome": pagamento.aluno.nome if pagamento.aluno else None,
         "curso_id": pagamento.curso_id,
         "curso_nome": pagamento.curso.nome if pagamento.curso else None,
+        "matricula_id": pagamento.matricula_id,
         "tipo_cobranca": pagamento.tipo_cobranca,
         "status": pagamento.status,
         "valor_esperado": float(pagamento.valor_esperado) if pagamento.valor_esperado is not None else 0.0,
@@ -39,12 +40,15 @@ def get_pagamentos():
     query = Pagamento.query
     aluno_id = request.args.get("aluno_id", type=int)
     curso_id = request.args.get("curso_id", type=int)
+    matricula_id = request.args.get("matricula_id", type=int)
     status = request.args.get("status")
 
     if aluno_id:
         query = query.filter_by(aluno_id=aluno_id)
     if curso_id:
         query = query.filter_by(curso_id=curso_id)
+    if matricula_id:
+        query = query.filter_by(matricula_id=matricula_id)
     if status:
         query = query.filter_by(status=status)
 
@@ -54,23 +58,37 @@ def get_pagamentos():
 
 @pagamentos_bp.route("", methods=["POST"])
 def criar_pagamento():
-    """ Cria um novo lançamento de pagamento para um aluno em um curso. """
+    """ Cria um novo lançamento de pagamento para um aluno em um curso/matrícula. """
     dados = request.get_json()
+    if not dados:
+        return jsonify({"erro": "Dados de pagamento são obrigatórios"}), 400
+
+    matricula_id = dados.get("matricula_id")
+    aluno_id = dados.get("aluno_id")
+    curso_id = dados.get("curso_id")
+
+    if matricula_id:
+        mat = db.session.get(Matricula, matricula_id)
+        if not mat:
+            return jsonify({"erro": "Matrícula não encontrada"}), 404
+        aluno_id = aluno_id or mat.aluno_id
+        curso_id = curso_id or mat.curso_id
+
     if (
-        not dados
-        or not dados.get("aluno_id")
-        or not dados.get("curso_id")
+        not aluno_id
+        or not curso_id
         or not dados.get("tipo_cobranca")
         or dados.get("valor_esperado") is None
         or not dados.get("data_vencimento")
     ):
         return jsonify({
-            "erro": "Aluno, curso, tipo de cobrança, valor esperado e data de vencimento são obrigatórios"
+            "erro": "Aluno (ou matrícula), curso, tipo de cobrança, valor esperado e data de vencimento são obrigatórios"
         }), 400
 
-    if not db.session.get(Aluno, dados.get("aluno_id")):
+    aluno = db.session.get(Pessoa, aluno_id)
+    if not aluno or not aluno.eh_aluno:
         return jsonify({"erro": "Aluno não encontrado"}), 404
-    if not db.session.get(Curso, dados.get("curso_id")):
+    if not db.session.get(Curso, curso_id):
         return jsonify({"erro": "Curso não encontrado"}), 404
 
     tipo_cobranca = dados.get("tipo_cobranca")
@@ -92,8 +110,9 @@ def criar_pagamento():
         return jsonify({"erro": "Formato de data inválido. Use YYYY-MM-DD"}), 400
 
     novo_pagamento = Pagamento(
-        aluno_id=dados.get("aluno_id"),
-        curso_id=dados.get("curso_id"),
+        aluno_id=aluno_id,
+        curso_id=curso_id,
+        matricula_id=matricula_id,
         tipo_cobranca=tipo_cobranca,
         status=status,
         valor_esperado=float(dados.get("valor_esperado")),
@@ -149,6 +168,9 @@ def atualizar_pagamento(pagamento_id):
         val_pago = dados.get("valor_pago")
         pagamento.valor_pago = float(val_pago) if val_pago is not None else None
 
+    if "matricula_id" in dados:
+        pagamento.matricula_id = dados.get("matricula_id")
+
     try:
         if "data_vencimento" in dados and dados.get("data_vencimento"):
             pagamento.data_vencimento = converter_data(dados.get("data_vencimento"))
@@ -171,4 +193,3 @@ def deletar_pagamento(pagamento_id):
     db.session.delete(pagamento)
     db.session.commit()
     return jsonify({"mensagem": "Pagamento deletado com sucesso"}), 200
-

@@ -5,7 +5,12 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
 *.sqlite3
+*.db
+instance/
+tests/
+backend/tests/
 
 # Node
 node_modules/

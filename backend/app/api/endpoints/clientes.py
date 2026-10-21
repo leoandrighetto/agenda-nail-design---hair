@@ -42,7 +42,7 @@ def criar_cliente():
 @clientes_bp.route("/<int:cliente_id>", methods=["GET"])
 def visualizar_cliente(cliente_id):
     """ Retorna os dados de um cliente específico. """
-    cliente = Cliente.query.get(cliente_id)
+    cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         return jsonify({"erro": "Cliente não encontrado"}), 404
 
@@ -58,7 +58,7 @@ def visualizar_cliente(cliente_id):
 @clientes_bp.route("/<int:cliente_id>", methods=["PUT"])
 def atualizar_cliente(cliente_id):
     """ Atualiza os dados de um cliente existente. """
-    cliente = Cliente.query.get(cliente_id)
+    cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         return jsonify({"erro": "Cliente não encontrado"}), 404
         
@@ -80,7 +80,7 @@ def atualizar_cliente(cliente_id):
 @clientes_bp.route("/<int:cliente_id>", methods=["DELETE"])
 def deletar_cliente(cliente_id):
     """ Deleta um cliente existente. """
-    cliente = Cliente.query.get(cliente_id)
+    cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         return jsonify({"erro": "Cliente não encontrado"}), 404
         

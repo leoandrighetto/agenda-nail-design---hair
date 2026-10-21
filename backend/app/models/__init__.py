@@ -10,4 +10,4 @@ from .entities.modalidade import Modalidade, modalidade_material, modalidade_equ
 from .entities.curso import Curso, curso_modalidade
 from .entities.matricula import Matricula, STATUS_MATRICULA
 from .entities.pagamento import Pagamento
-from .entities.agendamento import Agendamento
+from .entities.agendamento import Agendamento, agendamento_servico, TIPOS_AGENDAMENTO

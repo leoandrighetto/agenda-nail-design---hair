@@ -1,13 +1,16 @@
-""" Modelo da entidade Cliente. """
+""" Modelo da entidade Cliente herdando de Pessoa. """
 from app.extensions import db
+from .pessoa import Pessoa
 
-class Cliente(db.Model):
-    """ Entidade cliente. """
+
+class Cliente(Pessoa):
+    """ Entidade cliente do salão, associada à tabela base de pessoas. """
     __tablename__ = "clientes"
-    
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    telefone = db.Column(db.String(20), nullable=False)
-    cpf = db.Column(db.String(14), nullable=True)
-    email = db.Column(db.String(100), nullable=True)
-    endereco = db.Column(db.String(200), nullable=True)
+
+    id = db.Column(db.Integer, db.ForeignKey("pessoas.id"), primary_key=True)
+
+    # define a identidade polimórfica para registros de clientes
+    __mapper_args__ = {
+        "polymorphic_identity": "cliente",
+    }
+

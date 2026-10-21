@@ -1,11 +1,11 @@
-""" Modelo da entidade Curso e suas tabelas associativas com alunos e modalidades. """
+""" Modelo da entidade Curso e suas tabelas associativas com alunos (Pessoa) e modalidades. """
 from app.extensions import db
 
-# tabela intermediária do relacionamento muitos-para-muitos entre cursos e alunos
+# tabela intermediária do relacionamento muitos-para-muitos entre cursos e alunos (pessoas)
 curso_aluno = db.Table(
     "curso_aluno",
     db.Column("curso_id", db.Integer, db.ForeignKey("cursos.id"), primary_key=True),
-    db.Column("aluno_id", db.Integer, db.ForeignKey("alunos.id"), primary_key=True),
+    db.Column("aluno_id", db.Integer, db.ForeignKey("pessoas.id"), primary_key=True),
 )
 
 # tabela intermediária do relacionamento muitos-para-muitos entre cursos e modalidades
@@ -31,7 +31,7 @@ class Curso(db.Model):
 
     # relacionamentos muitos-para-muitos com alunos e modalidades
     alunos = db.relationship(
-        "Aluno",
+        "Pessoa",
         secondary=curso_aluno,
         backref=db.backref("cursos", lazy=True),
     )
@@ -40,4 +40,3 @@ class Curso(db.Model):
         secondary=curso_modalidade,
         backref=db.backref("cursos", lazy=True),
     )
-

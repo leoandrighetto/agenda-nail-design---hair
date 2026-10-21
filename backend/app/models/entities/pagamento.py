@@ -12,7 +12,7 @@ class Pagamento(db.Model):
     __tablename__ = "pagamentos"
 
     id = db.Column(db.Integer, primary_key=True)
-    aluno_id = db.Column(db.Integer, db.ForeignKey("alunos.id"), nullable=False)
+    aluno_id = db.Column(db.Integer, db.ForeignKey("pessoas.id"), nullable=False)
     curso_id = db.Column(db.Integer, db.ForeignKey("cursos.id"), nullable=False)
 
     tipo_cobranca = db.Column(
@@ -35,7 +35,6 @@ class Pagamento(db.Model):
         nullable=True,
     )
 
-    # relacionamentos com aluno (1:N) e curso (1:N)
-    aluno = db.relationship("Aluno", backref=db.backref("pagamentos", lazy=True))
+    # relacionamentos com aluno/pessoa (1:N) e curso (1:N)
+    aluno = db.relationship("Pessoa", backref=db.backref("pagamentos", lazy=True))
     curso = db.relationship("Curso", backref=db.backref("pagamentos", lazy=True))
-

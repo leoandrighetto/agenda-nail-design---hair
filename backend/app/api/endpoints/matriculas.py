@@ -169,3 +169,4 @@ def deletar_matricula(matricula_id):
     db.session.delete(mat)
     db.session.commit()
     return jsonify({"mensagem": "Matrícula deletada com sucesso"}), 200
+

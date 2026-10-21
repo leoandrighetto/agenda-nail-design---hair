@@ -37,3 +37,4 @@ class Matricula(db.Model):
         "Curso",
         backref=db.backref("matriculas", lazy=True, cascade="all, delete-orphan"),
     )
+

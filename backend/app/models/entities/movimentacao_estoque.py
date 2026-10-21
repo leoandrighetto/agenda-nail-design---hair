@@ -23,3 +23,4 @@ class MovimentacaoEstoque(db.Model):
         "Material",
         backref=db.backref("movimentacoes", lazy=True, cascade="all, delete-orphan"),
     )
+

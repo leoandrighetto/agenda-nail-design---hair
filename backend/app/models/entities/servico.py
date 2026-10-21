@@ -6,6 +6,13 @@ servico_material = db.Table(
     "servico_material",
     db.Column("servico_id", db.Integer, db.ForeignKey("servicos.id"), primary_key=True),
     db.Column("material_id", db.Integer, db.ForeignKey("materiais.id"), primary_key=True),
+    db.Column(
+        "quantidade_consumida",
+        db.Numeric(10, 2),
+        nullable=False,
+        default=1,
+        server_default=db.text("1"),
+    ),
 )
 
 # tabela associativa entre serviços e equipamentos necessários para a execução

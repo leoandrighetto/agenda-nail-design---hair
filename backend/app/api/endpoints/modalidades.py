@@ -12,7 +12,8 @@ def serializar_modalidade(modalidade):
         {
             "id": m.id,
             "nome": m.nome,
-            "quantidade": m.quantidade,
+            "quantidade": float(m.quantidade) if m.quantidade is not None else 0.0,
+            "unidade_medida": m.unidade_medida,
             "disponivel": m.disponivel,
         }
         for m in modalidade.materiais
@@ -27,7 +28,7 @@ def serializar_modalidade(modalidade):
         for e in modalidade.equipamentos
     ]
 
-    materiais_ok = all(m.disponivel and m.quantidade > 0 for m in modalidade.materiais)
+    materiais_ok = all(m.disponivel and float(m.quantidade or 0) > 0 for m in modalidade.materiais)
     equipamentos_ok = all(e.disponivel and e.quantidade > 0 for e in modalidade.equipamentos)
 
     return {

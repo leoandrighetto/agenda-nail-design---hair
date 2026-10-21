@@ -12,7 +12,8 @@ def serializar_servico(servico):
         {
             "id": m.id,
             "nome": m.nome,
-            "quantidade": m.quantidade,
+            "quantidade": float(m.quantidade) if m.quantidade is not None else 0.0,
+            "unidade_medida": m.unidade_medida,
             "disponivel": m.disponivel,
         }
         for m in servico.materiais
@@ -28,7 +29,7 @@ def serializar_servico(servico):
     ]
 
     # verifica se todos os materiais e equipamentos associados estão disponíveis
-    materiais_ok = all(m.disponivel and m.quantidade > 0 for m in servico.materiais)
+    materiais_ok = all(m.disponivel and float(m.quantidade or 0) > 0 for m in servico.materiais)
     equipamentos_ok = all(e.disponivel and e.quantidade > 0 for e in servico.equipamentos)
 
     return {

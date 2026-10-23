@@ -159,29 +159,45 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { fetchNominatimAddress } from '../services/nominatimService'
+import { ref, onMounted } from 'vue'
+import { useClientes } from '@/composables/clientes/useClientes'
+import { useAddressAutocomplete } from '@/composables/shared/useAddressAutocomplete'
+import { useSnackbar } from '@/composables/shared/useSnackbar'
+import { formatPhone, formatCPF } from '@/utils/shared/formatters'
 
-const apiBase = 'http://127.0.0.1:5000/api'
+// notificações e busca de endereço (composables compartilhados)
+const { snackbar, snackbarText, snackbarColor, showMessage } = useSnackbar()
+const {
+  addressSearch,
+  addressSuggestions,
+  addressLoading,
+  fetchAddressSuggestions,
+  resetAddressSearch,
+} = useAddressAutocomplete()
 
-// Estado
-const clientes = ref([])
-const loading = ref(false)
-const saving = ref(false)
+// estado reativo e regras de negócio de clientes
+const {
+  clientes,
+  loading,
+  saving,
+  editedItem,
+  formTitle,
+  nameRules,
+  phoneRules,
+  cpfRules,
+  emailRules,
+  resetEditedItem,
+  setEditedItem,
+  fetchClientes,
+  saveCliente,
+  deleteCliente,
+} = useClientes(showMessage)
+
+// estados puramente visuais/UI locais dos modais e formulário
 const dialog = ref(false)
 const dialogDelete = ref(false)
 const valid = ref(false)
 const form = ref(null)
-
-// Estado Nominatim (Endereço)
-const addressSearch = ref('')
-const addressSuggestions = ref([])
-const addressLoading = ref(false)
-let addressTimeout = null
-
-const snackbar = ref(false)
-const snackbarText = ref('')
-const snackbarColor = ref('success')
 
 const headers = [
   { title: 'Nome', key: 'nome', align: 'start', sortable: true },
@@ -191,166 +207,40 @@ const headers = [
   { title: 'Ações', key: 'acoes', sortable: false, align: 'end', width: '120px' },
 ]
 
-const defaultItem = {
-  id: null,
-  nome: '',
-  telefone: '',
-  cpf: '',
-  email: '',
-  endereco: '',
-}
-
-const editedItem = ref(Object.assign({}, defaultItem))
-
-const formTitle = computed(() => {
-  return editedItem.value.id ? 'Editar Cliente' : 'Novo Cliente'
-})
-
-// Máscaras de formatação
-const formatPhone = (val) => {
-  if (!val) return ''
-  let v = val.replace(/\D/g, '')
-  if (v.length > 11) v = v.substring(0, 11)
-  
-  if (v.length <= 2) {
-    return v.length > 0 ? `(${v}` : v
-  } else if (v.length <= 7) {
-    return `(${v.substring(0, 2)}) ${v.substring(2)}`
-  } else {
-    return `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`
-  }
-}
-
-const formatCPF = (val) => {
-  if (!val) return ''
-  let v = val.replace(/\D/g, '')
-  if (v.length > 11) v = v.substring(0, 11)
-  
-  if (v.length <= 3) {
-    return v
-  } else if (v.length <= 6) {
-    return `${v.substring(0, 3)}.${v.substring(3)}`
-  } else if (v.length <= 9) {
-    return `${v.substring(0, 3)}.${v.substring(3, 6)}.${v.substring(6)}`
-  } else {
-    return `${v.substring(0, 3)}.${v.substring(3, 6)}.${v.substring(6, 9)}-${v.substring(9)}`
-  }
-}
-
-// Regras de Validação
-const nameRules = [
-  v => !!v || 'Nome é obrigatório',
-  v => /^[a-zA-ZÀ-ÿ\s]+$/.test(v) || 'Nome deve conter apenas letras e espaços'
-]
-
-const phoneRules = [
-  v => !!v || 'Telefone é obrigatório',
-  v => (v && v.replace(/\D/g, '').length === 11) || 'Telefone deve ter 11 dígitos'
-]
-
-const cpfRules = [
-  v => !v || v.replace(/\D/g, '').length === 11 || 'CPF deve ter 11 dígitos'
-]
-
-const emailRules = [
-  v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido'
-]
-
-// Busca Inteligente de Endereço (Nominatim OpenStreetMap via Service)
-const fetchAddressSuggestions = (query) => {
-  if (!query || query.length < 4) {
-    addressSuggestions.value = []
-    return
-  }
-  
-  if (addressTimeout) clearTimeout(addressTimeout)
-  
-  addressTimeout = setTimeout(async () => {
-    addressLoading.value = true
-    try {
-      addressSuggestions.value = await fetchNominatimAddress(query)
-    } finally {
-      addressLoading.value = false
-    }
-  }, 300) // Reduzido agressivamente para 300ms
-}
-
-// Métodos
-const showMessage = (text, color = 'success') => {
-  snackbarText.value = text
-  snackbarColor.value = color
-  snackbar.value = true
-}
-
-const fetchClientes = async () => {
-  loading.value = true
-  try {
-    const res = await fetch(`${apiBase}/clientes`)
-    if (res.ok) {
-      const data = await res.json()
-      clientes.value = data.map(c => ({
-        ...c,
-        telefone: formatPhone(c.telefone),
-        cpf: formatCPF(c.cpf)
-      }))
-    } else {
-      showMessage('Erro ao buscar clientes', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão ao servidor Flask', 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
+// controle de abertura e fechamento dos modais
 const openDialog = () => {
-  editedItem.value = Object.assign({}, defaultItem)
+  resetEditedItem()
+  resetAddressSearch()
   dialog.value = true
   if (form.value) form.value.resetValidation()
 }
 
 const editItem = (item) => {
-  editedItem.value = Object.assign({}, item)
-  // Certificar-se que a máscara está aplicada ao editar
-  editedItem.value.telefone = formatPhone(editedItem.value.telefone)
-  editedItem.value.cpf = formatCPF(editedItem.value.cpf)
+  setEditedItem(item)
+  resetAddressSearch()
   dialog.value = true
 }
 
 const deleteItem = (item) => {
-  editedItem.value = Object.assign({}, item)
+  setEditedItem(item)
   dialogDelete.value = true
 }
 
 const close = () => {
   dialog.value = false
-  editedItem.value = Object.assign({}, defaultItem)
+  resetEditedItem()
+  resetAddressSearch()
   if (form.value) form.value.resetValidation()
 }
 
 const closeDelete = () => {
   dialogDelete.value = false
-  editedItem.value = Object.assign({}, defaultItem)
+  resetEditedItem()
 }
 
 const deleteItemConfirm = async () => {
-  saving.value = true
-  try {
-    const res = await fetch(`${apiBase}/clientes/${editedItem.value.id}`, {
-      method: 'DELETE'
-    })
-    if (res.ok) {
-      showMessage('Cliente excluído com sucesso')
-      await fetchClientes()
-    } else {
-      showMessage('Erro ao excluir cliente', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão', 'error')
-  } finally {
-    saving.value = false
-    closeDelete()
-  }
+  await deleteCliente()
+  closeDelete()
 }
 
 const save = async () => {
@@ -358,42 +248,9 @@ const save = async () => {
   const { valid: isValid } = await form.value.validate()
   if (!isValid) return
 
-  saving.value = true
-  const method = editedItem.value.id ? 'PUT' : 'POST'
-  const url = editedItem.value.id 
-    ? `${apiBase}/clientes/${editedItem.value.id}` 
-    : `${apiBase}/clientes`
-
-  // Remover máscara para enviar apenas números ao backend e sanitizar o endereço (String)
-  const addressVal = editedItem.value.endereco
-  const payload = {
-    ...editedItem.value,
-    telefone: editedItem.value.telefone ? String(editedItem.value.telefone).replace(/\D/g, '') : '',
-    cpf: editedItem.value.cpf ? String(editedItem.value.cpf).replace(/\D/g, '') : null,
-    endereco: (typeof addressVal === 'object' && addressVal !== null) 
-                ? (addressVal.formatted_address || addressVal.display_name || '')
-                : (addressVal || '')
-  }
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    
-    if (res.ok) {
-      showMessage(`Cliente ${editedItem.value.id ? 'atualizado' : 'cadastrado'} com sucesso`)
-      close()
-      await fetchClientes()
-    } else {
-      const err = await res.json()
-      showMessage(err.erro || 'Erro ao salvar', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão', 'error')
-  } finally {
-    saving.value = false
+  const sucesso = await saveCliente()
+  if (sucesso) {
+    close()
   }
 }
 

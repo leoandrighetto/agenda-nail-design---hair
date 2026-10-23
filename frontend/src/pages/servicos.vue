@@ -803,21 +803,60 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useServicosEstoque } from '@/composables/servicos/useServicosEstoque'
+import { useSnackbar } from '@/composables/shared/useSnackbar'
+import { formatCurrency, formatDuration } from '@/utils/shared/formatters'
+import { isResourceAvailable } from '@/utils/estoque/estoqueUtils'
 
-const apiBase = 'http://127.0.0.1:5000/api'
+// notificações visuais compartilhadas
+const { snackbar, snackbarText, snackbarColor, showMessage } = useSnackbar()
 
-// Aba ativa e estados gerais
+// lógica de negócio de serviços, materiais, equipamentos e KPIs de estoque
+const {
+  loading,
+  saving,
+  servicos,
+  materiais,
+  equipamentos,
+  servicoForm,
+  materialForm,
+  equipamentoForm,
+  servicosComFalta,
+  materiaisEmFalta,
+  equipamentosIndisponiveis,
+  recursosFaltantesNoFormulario,
+  fetchAllData,
+  prepareServicoForm,
+  prepareMaterialForm,
+  prepareEquipamentoForm,
+  saveServico: persistirServico,
+  saveMaterial: persistirMaterial,
+  saveEquipamento: persistirEquipamento,
+  adjustQuantity,
+  toggleAvailability,
+  deleteRegistro,
+} = useServicosEstoque(showMessage)
+
+// estados puramente visuais/UI locais (abas, modais e validação Vuetify)
 const activeTab = ref('servicos')
-const loading = ref(false)
-const saving = ref(false)
 
-// Listas de dados vindas do Backend
-const servicos = ref([])
-const materiais = ref([])
-const equipamentos = ref([])
+const servicoDialog = ref(false)
+const servicoValid = ref(false)
+const servicoFormRef = ref(null)
 
-// Cabeçalhos das tabelas
+const materialDialog = ref(false)
+const materialValid = ref(false)
+const materialFormRef = ref(null)
+
+const equipamentoDialog = ref(false)
+const equipamentoValid = ref(false)
+const equipamentoFormRef = ref(null)
+
+const deleteDialog = ref(false)
+const deleteTarget = ref({ type: '', id: null, nome: '' })
+
+// cabeçalhos das tabelas
 const servicoHeaders = [
   { title: 'Procedimento / Descrição', key: 'nome', align: 'start', sortable: true },
   { title: 'Duração', key: 'duracao_minutos', sortable: true, width: '130px' },
@@ -835,144 +874,9 @@ const recursoHeaders = [
   { title: 'Ações', key: 'acoes', sortable: false, align: 'end', width: '110px' },
 ]
 
-// Estados dos Modais e Formulários
-const servicoDialog = ref(false)
-const servicoValid = ref(false)
-const servicoFormRef = ref(null)
-const defaultServico = {
-  id: null,
-  nome: '',
-  descricao: '',
-  duracao_minutos: 60,
-  preco: null,
-  materiais_ids: [],
-  equipamentos_ids: [],
-}
-const servicoForm = ref({ ...defaultServico })
-
-const materialDialog = ref(false)
-const materialValid = ref(false)
-const materialFormRef = ref(null)
-const defaultMaterial = {
-  id: null,
-  nome: '',
-  descricao: '',
-  quantidade: 1,
-  disponivel: true,
-}
-const materialForm = ref({ ...defaultMaterial })
-
-const equipamentoDialog = ref(false)
-const equipamentoValid = ref(false)
-const equipamentoFormRef = ref(null)
-const defaultEquipamento = {
-  id: null,
-  nome: '',
-  descricao: '',
-  quantidade: 1,
-  disponivel: true,
-}
-const equipamentoForm = ref({ ...defaultEquipamento })
-
-// Exclusão
-const deleteDialog = ref(false)
-const deleteTarget = ref({ type: '', id: null, nome: '' })
-
-// Notificações (Snackbar)
-const snackbar = ref(false)
-const snackbarText = ref('')
-const snackbarColor = ref('success')
-
-const showMessage = (text, color = 'success') => {
-  snackbarText.value = text
-  snackbarColor.value = color
-  snackbar.value = true
-}
-
-// Funções auxiliares de formatação e verificação
-const isResourceAvailable = (item) => {
-  return Boolean(item && item.disponivel && item.quantidade > 0)
-}
-
-const formatCurrency = (val) => {
-  if (val === null || val === undefined || val === '') return 'A consultar'
-  return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-const formatDuration = (mins) => {
-  if (!mins) return '30 min'
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m > 0 ? `${h}h ${m}min` : `${h}h`
-}
-
-// Indicadores computados (KPIs)
-const servicosComFalta = computed(() => {
-  return servicos.value.filter(s => !s.recursos_disponiveis).length
-})
-
-const materiaisEmFalta = computed(() => {
-  return materiais.value.filter(m => !isResourceAvailable(m)).length
-})
-
-const equipamentosIndisponiveis = computed(() => {
-  return equipamentos.value.filter(e => !isResourceAvailable(e)).length
-})
-
-// Verifica em tempo real no formulário do Serviço se algum recurso escolhido está em falta
-const recursosFaltantesNoFormulario = computed(() => {
-  const faltantes = []
-  for (const id of servicoForm.value.materiais_ids || []) {
-    const mat = materiais.value.find(m => m.id === id)
-    if (mat && !isResourceAvailable(mat)) {
-      faltantes.push(`${mat.nome} (Material)`)
-    }
-  }
-  for (const id of servicoForm.value.equipamentos_ids || []) {
-    const eq = equipamentos.value.find(e => e.id === id)
-    if (eq && !isResourceAvailable(eq)) {
-      faltantes.push(`${eq.nome} (Equipamento)`)
-    }
-  }
-  return faltantes
-})
-
-// Carregamento de dados da API
-const fetchAllData = async () => {
-  loading.value = true
-  try {
-    const [resServ, resMat, resEq] = await Promise.all([
-      fetch(`${apiBase}/servicos`),
-      fetch(`${apiBase}/materiais`),
-      fetch(`${apiBase}/equipamentos`),
-    ])
-
-    if (resServ.ok) servicos.value = await resServ.json()
-    if (resMat.ok) materiais.value = await resMat.json()
-    if (resEq.ok) equipamentos.value = await resEq.json()
-  } catch (error) {
-    showMessage('Erro de conexão com o servidor Flask', 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-// Ações de Serviços
+// controle dos modais e disparo de persistência após validação visual do formulário
 const openServicoDialog = (item = null) => {
-  if (item) {
-    servicoForm.value = {
-      id: item.id,
-      nome: item.nome,
-      descricao: item.descricao || '',
-      duracao_minutos: item.duracao_minutos || 30,
-      preco: item.preco,
-      materiais_ids: (item.materiais || []).map(m => m.id),
-      equipamentos_ids: (item.equipamentos || []).map(e => e.id),
-    }
-  } else {
-    servicoForm.value = { ...defaultServico, materiais_ids: [], equipamentos_ids: [] }
-  }
+  prepareServicoForm(item)
   servicoDialog.value = true
 }
 
@@ -981,40 +885,14 @@ const saveServico = async () => {
   const { valid } = await servicoFormRef.value.validate()
   if (!valid) return
 
-  saving.value = true
-  const isEdit = Boolean(servicoForm.value.id)
-  const url = isEdit ? `${apiBase}/servicos/${servicoForm.value.id}` : `${apiBase}/servicos`
-  const method = isEdit ? 'PUT' : 'POST'
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(servicoForm.value),
-    })
-
-    if (res.ok) {
-      showMessage(`Serviço ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`)
-      servicoDialog.value = false
-      await fetchAllData()
-    } else {
-      const err = await res.json()
-      showMessage(err.erro || 'Erro ao salvar serviço', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão ao salvar serviço', 'error')
-  } finally {
-    saving.value = false
+  const sucesso = await persistirServico()
+  if (sucesso) {
+    servicoDialog.value = false
   }
 }
 
-// Ações de Materiais
 const openMaterialDialog = (item = null) => {
-  if (item) {
-    materialForm.value = { ...item }
-  } else {
-    materialForm.value = { ...defaultMaterial }
-  }
+  prepareMaterialForm(item)
   materialDialog.value = true
 }
 
@@ -1023,45 +901,14 @@ const saveMaterial = async () => {
   const { valid } = await materialFormRef.value.validate()
   if (!valid) return
 
-  saving.value = true
-  const isEdit = Boolean(materialForm.value.id)
-  const url = isEdit ? `${apiBase}/materiais/${materialForm.value.id}` : `${apiBase}/materiais`
-  const method = isEdit ? 'PUT' : 'POST'
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(materialForm.value),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      showMessage(`Material ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`)
-      materialDialog.value = false
-      await fetchAllData()
-      // se o modal de serviço estiver aberto e for um novo material, já adiciona na seleção
-      if (servicoDialog.value && !isEdit && data.id) {
-        servicoForm.value.materiais_ids.push(data.id)
-      }
-    } else {
-      const err = await res.json()
-      showMessage(err.erro || 'Erro ao salvar material', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão ao salvar material', 'error')
-  } finally {
-    saving.value = false
+  const sucesso = await persistirMaterial(servicoDialog.value)
+  if (sucesso) {
+    materialDialog.value = false
   }
 }
 
-// Ações de Equipamentos
 const openEquipamentoDialog = (item = null) => {
-  if (item) {
-    equipamentoForm.value = { ...item }
-  } else {
-    equipamentoForm.value = { ...defaultEquipamento }
-  }
+  prepareEquipamentoForm(item)
   equipamentoDialog.value = true
 }
 
@@ -1070,112 +917,21 @@ const saveEquipamento = async () => {
   const { valid } = await equipamentoFormRef.value.validate()
   if (!valid) return
 
-  saving.value = true
-  const isEdit = Boolean(equipamentoForm.value.id)
-  const url = isEdit ? `${apiBase}/equipamentos/${equipamentoForm.value.id}` : `${apiBase}/equipamentos`
-  const method = isEdit ? 'PUT' : 'POST'
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(equipamentoForm.value),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      showMessage(`Equipamento ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`)
-      equipamentoDialog.value = false
-      await fetchAllData()
-      // se o modal de serviço estiver aberto e for um novo equipamento, já adiciona na seleção
-      if (servicoDialog.value && !isEdit && data.id) {
-        servicoForm.value.equipamentos_ids.push(data.id)
-      }
-    } else {
-      const err = await res.json()
-      showMessage(err.erro || 'Erro ao salvar equipamento', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão ao salvar equipamento', 'error')
-  } finally {
-    saving.value = false
+  const sucesso = await persistirEquipamento(servicoDialog.value)
+  if (sucesso) {
+    equipamentoDialog.value = false
   }
 }
 
-// Ajuste rápido de quantidade (+ / -) e disponibilidade direto na tabela
-const adjustQuantity = async (endpoint, item, delta) => {
-  const novaQtd = Math.max(0, (item.quantidade || 0) + delta)
-  const novoDisponivel = novaQtd > 0 ? item.disponivel : false
-
-  try {
-    const res = await fetch(`${apiBase}/${endpoint}/${item.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        quantidade: novaQtd,
-        disponivel: novoDisponivel,
-      }),
-    })
-    if (res.ok) {
-      await fetchAllData()
-    }
-  } catch (error) {
-    showMessage('Erro ao atualizar quantidade', 'error')
-  }
-}
-
-const toggleAvailability = async (endpoint, item) => {
-  const novoStatus = !item.disponivel
-  const novaQtd = novoStatus && item.quantidade === 0 ? 1 : item.quantidade
-
-  try {
-    const res = await fetch(`${apiBase}/${endpoint}/${item.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        disponivel: novoStatus,
-        quantidade: novaQtd,
-      }),
-    })
-    if (res.ok) {
-      await fetchAllData()
-      showMessage('Disponibilidade atualizada!')
-    }
-  } catch (error) {
-    showMessage('Erro ao alternar disponibilidade', 'error')
-  }
-}
-
-// Exclusão unificada
 const confirmDelete = (type, item) => {
   deleteTarget.value = { type, id: item.id, nome: item.nome }
   deleteDialog.value = true
 }
 
 const executeDelete = async () => {
-  saving.value = true
-  const endpointsMap = {
-    servico: 'servicos',
-    material: 'materiais',
-    equipamento: 'equipamentos',
-  }
-  const endpoint = endpointsMap[deleteTarget.value.type]
-
-  try {
-    const res = await fetch(`${apiBase}/${endpoint}/${deleteTarget.value.id}`, {
-      method: 'DELETE',
-    })
-    if (res.ok) {
-      showMessage('Registro excluído com sucesso!')
-      deleteDialog.value = false
-      await fetchAllData()
-    } else {
-      showMessage('Erro ao excluir registro', 'error')
-    }
-  } catch (error) {
-    showMessage('Erro de conexão ao excluir', 'error')
-  } finally {
-    saving.value = false
+  const sucesso = await deleteRegistro(deleteTarget.value.type, deleteTarget.value.id)
+  if (sucesso) {
+    deleteDialog.value = false
   }
 }
 

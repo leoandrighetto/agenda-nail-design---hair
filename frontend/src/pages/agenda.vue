@@ -565,37 +565,57 @@
 import { ref, computed, onMounted } from 'vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
 import { useAgendaStore } from '@/stores/agenda'
+import { useAgendaCalendar } from '@/composables/agenda/useAgendaCalendar'
+import { useAgendamentoForm } from '@/composables/agenda/useAgendamentoForm'
+import { useSnackbar } from '@/composables/shared/useSnackbar'
+import { formatarMoeda, formatarDataBr } from '@/utils/shared/formatters'
+import { listarRecursosIndisponiveis } from '@/utils/estoque/estoqueUtils'
 
 const store = useAgendaStore()
 
-// controle de data atual e navegação do calendário
-const today = new Date()
-const hojeIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+// notificações visuais compartilhadas
+const { snackbar, snackbarText, snackbarColor, mostrarMensagem } = useSnackbar()
 
-const currentYear = ref(today.getFullYear())
-const currentMonth = ref(today.getMonth())
+// navegação de calendário, busca/filtros reativos e KPIs da agenda
+const {
+  hojeIso,
+  currentYear,
+  currentMonth,
+  monthName,
+  termoBusca,
+  filtroStatus,
+  eventosFiltrados,
+  agendamentosHoje,
+  proximoAtendimentoHoje,
+  agendamentosDoMes,
+  pendentesOuConfirmadosMes,
+  canceladosMes,
+  concluidosMes,
+  receitaConcluidaMes,
+  prevMonth,
+  nextMonth,
+  irParaHoje,
+} = useAgendaCalendar(store)
 
-const monthNames = [
-  'janeiro',
-  'fevereiro',
-  'março',
-  'abril',
-  'maio',
-  'junho',
-  'julho',
-  'agosto',
-  'setembro',
-  'outubro',
-  'novembro',
-  'dezembro',
-]
+// formulário de agendamento, conflito de horário e ações de persistência
+const {
+  form,
+  salvando,
+  excluindo,
+  atualizandoStatus,
+  rules,
+  servicoSelecionadoForm,
+  conflitoHorario,
+  recalcularHoraFim,
+  aoSelecionarServico,
+  iniciarNovoForm,
+  preencherFormEdicao,
+  salvarAgendamento: persistirAgendamento,
+  alterarStatusRapido: persistirStatusRapido,
+  executarExclusao: persistirExclusao,
+} = useAgendamentoForm(store, hojeIso, mostrarMensagem)
 
-const monthName = computed(() => monthNames[currentMonth.value])
-
-// estados de busca e filtro de status
-const termoBusca = ref('')
-const filtroStatus = ref('TODOS')
-
+// opções visuais de status e filtros da UI
 const opcoesStatus = [
   { valor: 'Pendente', cor: 'accent', icone: 'mdi-clock-outline' },
   { valor: 'Confirmado', cor: 'primary', icone: 'mdi-calendar-check' },
@@ -611,108 +631,18 @@ const opcoesFiltroStatus = [
   { valor: 'Cancelado', rotulo: 'Cancelados', cor: 'grey-darken-1', icone: 'mdi-cancel' },
 ]
 
-// eventos filtrados por busca e status
-const eventosFiltrados = computed(() => {
-  return store.agendamentos.filter((ag) => {
-    const passaStatus = filtroStatus.value === 'TODOS' || ag.status === filtroStatus.value
-    if (!passaStatus) return false
-
-    if (!termoBusca.value) return true
-    const termo = termoBusca.value.toLowerCase().trim()
-    return (
-      (ag.cliente && ag.cliente.toLowerCase().includes(termo)) ||
-      (ag.servico && ag.servico.toLowerCase().includes(termo))
-    )
-  })
-})
-
-// indicadores (KPIs) calculados em tempo real
-const agendamentosHoje = computed(() => {
-  return store.agendamentos
-    .filter((ag) => ag.data === hojeIso && ag.status !== 'Cancelado')
-    .sort((a, b) => a.hora.localeCompare(b.hora))
-})
-
-const proximoAtendimentoHoje = computed(() => {
-  return agendamentosHoje.value.find(
-    (ag) => ag.status === 'Pendente' || ag.status === 'Confirmado'
-  )
-})
-
-const agendamentosDoMes = computed(() => {
-  return store.getAgendamentosPorMes(currentYear.value, currentMonth.value)
-})
-
-const pendentesOuConfirmadosMes = computed(() => {
-  return agendamentosDoMes.value.filter(
-    (ag) => ag.status === 'Pendente' || ag.status === 'Confirmado'
-  ).length
-})
-
-const canceladosMes = computed(() => {
-  return agendamentosDoMes.value.filter((ag) => ag.status === 'Cancelado').length
-})
-
-const concluidosMes = computed(() => {
-  return agendamentosDoMes.value.filter((ag) => ag.status === 'Concluído').length
-})
-
-const receitaConcluidaMes = computed(() => {
-  return agendamentosDoMes.value
-    .filter((ag) => ag.status === 'Concluído')
-    .reduce((soma, ag) => {
-      const servicoObj = store.servicos.find((s) => s.id === ag.servico_id)
-      return soma + (servicoObj?.preco ? Number(servicoObj.preco) : 0)
-    }, 0)
-})
-
-// estados dos modais
+// estados puramente visuais/UI locais dos modais
 const detalheDialog = ref(false)
 const agendamentoSelecionado = ref(null)
-const atualizandoStatus = ref(null)
 
 const agendamentoDialog = ref(false)
 const formValido = ref(false)
 const formRef = ref(null)
-const salvando = ref(false)
-
-const padraoForm = () => ({
-  id: null,
-  cliente_id: null,
-  servico_id: null,
-  data: hojeIso,
-  hora_inicio: '09:00',
-  hora_fim: '10:00',
-  status: 'Pendente',
-})
-
-const form = ref(padraoForm())
 
 const deleteDialog = ref(false)
 const agendamentoParaExcluir = ref(null)
-const excluindo = ref(false)
 
-// snackbar de notificações
-const snackbar = ref(false)
-const snackbarText = ref('')
-const snackbarColor = ref('success')
-
-function mostrarMensagem(texto, cor = 'success') {
-  snackbarText.value = texto
-  snackbarColor.value = cor
-  snackbar.value = true
-}
-
-const rules = {
-  required: (v) => (v !== null && v !== undefined && v !== '') || 'Campo obrigatório',
-}
-
-// objetos auxiliares computados para os modais
-const servicoSelecionadoForm = computed(() => {
-  if (!form.value.servico_id) return null
-  return store.servicos.find((s) => s.id === form.value.servico_id) || null
-})
-
+// objetos auxiliares para exibição no modal de detalhes
 const clienteDetalhe = computed(() => {
   if (!agendamentoSelecionado.value) return null
   return store.clientes.find((c) => c.id === agendamentoSelecionado.value.cliente_id) || null
@@ -723,99 +653,9 @@ const servicoDetalhe = computed(() => {
   return store.servicos.find((s) => s.id === agendamentoSelecionado.value.servico_id) || null
 })
 
-// verifica se já existe outro agendamento ativo no mesmo intervalo de horário
-const conflitoHorario = computed(() => {
-  if (!form.value.data || !form.value.hora_inicio || !form.value.hora_fim) return null
-
-  return store.agendamentos.find((ag) => {
-    if (ag.id === form.value.id) return false
-    if (ag.status === 'Cancelado') return false
-    if (ag.data !== form.value.data) return false
-
-    const inicioNovo = form.value.hora_inicio
-    const fimNovo = form.value.hora_fim
-    const inicioExistente = ag.hora
-    const fimExistente = ag.hora_fim || ag.hora
-
-    return inicioNovo < fimExistente && fimNovo > inicioExistente
-  })
-})
-
-// retorna lista de nomes dos materiais e equipamentos indisponíveis de um serviço
-function listarRecursosIndisponiveis(servico) {
-  if (!servico) return []
-  const indisponiveis = []
-
-  if (Array.isArray(servico.materiais)) {
-    servico.materiais.forEach((m) => {
-      if (!m.disponivel || m.quantidade <= 0) {
-        indisponiveis.push(`${m.nome} (Material)`)
-      }
-    })
-  }
-
-  if (Array.isArray(servico.equipamentos)) {
-    servico.equipamentos.forEach((eq) => {
-      if (!eq.disponivel || eq.quantidade <= 0) {
-        indisponiveis.push(`${eq.nome} (Equipamento)`)
-      }
-    })
-  }
-
-  return indisponiveis
-}
-
-// soma a duração do serviço ao horário de início para sugerir o término
-function somarMinutosNaHora(horaStr, minutos) {
-  if (!horaStr || !horaStr.includes(':')) return ''
-  const [h, m] = horaStr.split(':').map(Number)
-  const totalMinutos = h * 60 + m + (Number(minutos) || 30)
-  const horasFinais = Math.floor(totalMinutos / 60) % 24
-  const minutosFinais = totalMinutos % 60
-  return `${String(horasFinais).padStart(2, '0')}:${String(minutosFinais).padStart(2, '0')}`
-}
-
-function aoSelecionarServico() {
-  recalcularHoraFim()
-}
-
-function recalcularHoraFim() {
-  if (!form.value.hora_inicio) return
-  const duracao = servicoSelecionadoForm.value?.duracao_minutos || 30
-  form.value.hora_fim = somarMinutosNaHora(form.value.hora_inicio, duracao)
-}
-
-// funções de navegação do calendário
-function prevMonth() {
-  if (currentMonth.value === 0) {
-    currentMonth.value = 11
-    currentYear.value--
-  } else {
-    currentMonth.value--
-  }
-}
-
-function nextMonth() {
-  if (currentMonth.value === 11) {
-    currentMonth.value = 0
-    currentYear.value++
-  } else {
-    currentMonth.value++
-  }
-}
-
-function irParaHoje() {
-  const agora = new Date()
-  currentYear.value = agora.getFullYear()
-  currentMonth.value = agora.getMonth()
-}
-
-// abertura dos modais de criação, detalhes e edição
+// abertura e controle dos modais
 function abrirNovoAgendamento(dataPreSelecionada = null) {
-  form.value = padraoForm()
-  if (typeof dataPreSelecionada === 'string' && dataPreSelecionada) {
-    form.value.data = dataPreSelecionada
-  }
+  iniciarNovoForm(dataPreSelecionada)
   agendamentoDialog.value = true
 }
 
@@ -826,73 +666,25 @@ function abrirDetalhesAgendamento(evento) {
 
 function abrirEdicaoAgendamento(evento) {
   detalheDialog.value = false
-  form.value = {
-    id: evento.id,
-    cliente_id: evento.cliente_id,
-    servico_id: evento.servico_id,
-    data: evento.data,
-    hora_inicio: evento.hora,
-    hora_fim: evento.hora_fim || somarMinutosNaHora(evento.hora, 30),
-    status: evento.status || 'Pendente',
-  }
+  preencherFormEdicao(evento)
   agendamentoDialog.value = true
 }
 
-// salva novo agendamento ou atualiza existente
 async function salvarAgendamento() {
   if (!formValido.value) return
-  salvando.value = true
-
-  try {
-    const payload = {
-      cliente_id: form.value.cliente_id,
-      servico_id: form.value.servico_id,
-      data_hora_inicio: `${form.value.data}T${form.value.hora_inicio}:00`,
-      status: form.value.status,
-    }
-
-    if (form.value.hora_fim) {
-      payload.data_hora_fim = `${form.value.data}T${form.value.hora_fim}:00`
-    }
-
-    if (form.value.id) {
-      await store.atualizarAgendamento(form.value.id, payload)
-      mostrarMensagem('Agendamento atualizado com sucesso!')
-    } else {
-      await store.criarAgendamento(payload)
-      mostrarMensagem('Agendamento registrado com sucesso!')
-    }
-
+  const sucesso = await persistirAgendamento()
+  if (sucesso) {
     agendamentoDialog.value = false
-  } catch (err) {
-    mostrarMensagem(err.message || 'Erro ao salvar agendamento', 'error')
-  } finally {
-    salvando.value = false
   }
 }
 
-// altera rapidamente o status de um agendamento diretamente do modal de detalhes
 async function alterarStatusRapido(novoStatus) {
-  if (!agendamentoSelecionado.value || agendamentoSelecionado.value.status === novoStatus) return
-  atualizandoStatus.value = novoStatus
-
-  try {
-    await store.atualizarAgendamento(agendamentoSelecionado.value.id, {
-      status: novoStatus,
-    })
-    const atualizado = store.agendamentos.find((a) => a.id === agendamentoSelecionado.value.id)
-    if (atualizado) {
-      agendamentoSelecionado.value = atualizado
-    }
-    mostrarMensagem(`Status alterado para "${novoStatus}"!`)
-  } catch (err) {
-    mostrarMensagem(err.message || 'Erro ao alterar status', 'error')
-  } finally {
-    atualizandoStatus.value = null
+  const atualizado = await persistirStatusRapido(agendamentoSelecionado.value, novoStatus)
+  if (atualizado) {
+    agendamentoSelecionado.value = atualizado
   }
 }
 
-// fluxo de exclusão de agendamento
 function confirmarExclusao(evento) {
   agendamentoParaExcluir.value = evento
   detalheDialog.value = false
@@ -901,33 +693,11 @@ function confirmarExclusao(evento) {
 
 async function executarExclusao() {
   if (!agendamentoParaExcluir.value) return
-  excluindo.value = true
-
-  try {
-    await store.deletarAgendamento(agendamentoParaExcluir.value.id)
-    mostrarMensagem('Agendamento excluído com sucesso!')
+  const sucesso = await persistirExclusao(agendamentoParaExcluir.value.id)
+  if (sucesso) {
     deleteDialog.value = false
     agendamentoParaExcluir.value = null
-  } catch (err) {
-    mostrarMensagem(err.message || 'Erro ao excluir agendamento', 'error')
-  } finally {
-    excluindo.value = false
   }
-}
-
-// utilitários de formatação
-function formatarMoeda(valor) {
-  if (valor === null || valor === undefined || valor === '') return '0,00'
-  return Number(valor).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
-function formatarDataBr(dataIso) {
-  if (!dataIso || !dataIso.includes('-')) return dataIso || ''
-  const [ano, mes, dia] = dataIso.split('-')
-  return `${dia}/${mes}/${ano}`
 }
 
 onMounted(async () => {

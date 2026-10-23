@@ -1,43 +1,16 @@
+/**
+ * Store Pinia da agenda integrada aos serviços HTTP de agendamentos, clientes e serviços.
+ */
 import { defineStore } from 'pinia'
-
-const API_BASE = 'http://127.0.0.1:5000/api'
-
-// mapeia a cor do card de acordo com o status do agendamento
-function obterCorPorStatus(status) {
-  switch (status) {
-    case 'Confirmado':
-      return 'primary'
-    case 'Concluído':
-      return 'success'
-    case 'Cancelado':
-      return 'grey-darken-1'
-    case 'Pendente':
-    default:
-      return 'accent'
-  }
-}
-
-// converte o objeto retornado pela API para o formato enriquecido usado na interface
-function normalizarAgendamento(item) {
-  const inicioStr = item.data_hora_inicio || ''
-  const fimStr = item.data_hora_fim || ''
-
-  const [dataParte, horaParteCompleta] = inicioStr.split('T')
-  const horaInicio = horaParteCompleta ? horaParteCompleta.substring(0, 5) : '00:00'
-
-  const [, horaFimCompleta] = fimStr.split('T')
-  const horaFim = horaFimCompleta ? horaFimCompleta.substring(0, 5) : ''
-
-  return {
-    ...item,
-    data: dataParte || '',
-    hora: horaInicio,
-    hora_fim: horaFim,
-    cliente: item.cliente_nome || 'Cliente não informado',
-    servico: item.servico_nome || 'Serviço não informado',
-    color: obterCorPorStatus(item.status),
-  }
-}
+import {
+  listarAgendamentos,
+  criarAgendamentoApi,
+  atualizarAgendamentoApi,
+  excluirAgendamentoApi,
+} from '@/services/agenda/agendamentosService'
+import { listarClientes } from '@/services/clientes/clientesService'
+import { listarServicos } from '@/services/servicos/servicosService'
+import { normalizarAgendamento } from '@/utils/agenda/statusUtils'
 
 export const useAgendaStore = defineStore('agenda', {
   state: () => ({
@@ -75,76 +48,42 @@ export const useAgendaStore = defineStore('agenda', {
       }
     },
 
-    // busca todos os agendamentos cadastrados no backend
+    // busca todos os agendamentos cadastrados no backend via service
     async fetchAgendamentos() {
-      const res = await fetch(`${API_BASE}/agendamentos`)
-      if (!res.ok) {
-        throw new Error('Não foi possível carregar os agendamentos')
-      }
-      const dados = await res.json()
+      const dados = await listarAgendamentos()
       this.agendamentos = dados.map(normalizarAgendamento)
       return this.agendamentos
     },
 
-    // busca a lista de clientes para seleção no agendamento
+    // busca a lista de clientes para seleção no agendamento via service
     async fetchClientes() {
-      const res = await fetch(`${API_BASE}/clientes`)
-      if (!res.ok) {
-        throw new Error('Não foi possível carregar os clientes')
-      }
-      this.clientes = await res.json()
+      this.clientes = await listarClientes()
       return this.clientes
     },
 
-    // busca o catálogo de serviços com status de recursos disponíveis
+    // busca o catálogo de serviços com status de recursos disponíveis via service
     async fetchServicos() {
-      const res = await fetch(`${API_BASE}/servicos`)
-      if (!res.ok) {
-        throw new Error('Não foi possível carregar os serviços')
-      }
-      this.servicos = await res.json()
+      this.servicos = await listarServicos()
       return this.servicos
     },
 
     // cria um novo agendamento na API e atualiza a lista local
     async criarAgendamento(payload) {
-      const res = await fetch(`${API_BASE}/agendamentos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao criar agendamento')
-      }
+      const data = await criarAgendamentoApi(payload)
       await this.fetchAgendamentos()
       return data
     },
 
     // atualiza um agendamento existente (status, horário, cliente ou serviço)
     async atualizarAgendamento(id, payload) {
-      const res = await fetch(`${API_BASE}/agendamentos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao atualizar agendamento')
-      }
+      const data = await atualizarAgendamentoApi(id, payload)
       await this.fetchAgendamentos()
       return data
     },
 
     // remove um agendamento do banco de dados
     async deletarAgendamento(id) {
-      const res = await fetch(`${API_BASE}/agendamentos/${id}`, {
-        method: 'DELETE',
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao excluir agendamento')
-      }
+      const data = await excluirAgendamentoApi(id)
       await this.fetchAgendamentos()
       return data
     },

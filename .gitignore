@@ -1,27 +1,83 @@
+# VS Code e IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+launcher/
+
+# Testes (garantir que nenhum teste suba ao repositório)
+tests/
+test/
+**/tests/
+**/test/
+*test*.py
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+pytest.ini
+**/pytest.ini
+.pytest_cache/
+coverage/
+.coverage
+htmlcov/
+
+# Dados sensíveis, chaves e credenciais
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+credentials.json
+token.json
+secrets/
+
+# Bancos de dados locais e backups
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+instance/
+*.sql
+*.dump
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # Python
 venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
-.env.*
-*.sqlite3
-*.db
-instance/
-tests/
-backend/tests/
 
 # Node
 node_modules/
 dist/
+dist-ssr/
 build/
 .npm
 .eslintcache
+*.tsbuildinfo
 
-# OS
+# Sistema Operacional
 .DS_Store
 Thumbs.db
 
 # Editor
 .vscode/
+desktop.ini

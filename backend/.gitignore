@@ -1,4 +1,6 @@
 instance/
-tests/
 *.db
+*.db-wal
+*.db-shm
 .env
+.pytest_cache/

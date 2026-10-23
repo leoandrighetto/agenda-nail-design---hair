@@ -432,25 +432,38 @@
                 </div>
               </v-col>
 
-              <!-- Chips Coloridos Discretos dos Procedimentos Selecionados (ACIMA do card de tempo/valor) -->
-              <v-col v-if="servicosSelecionadosForm.length" cols="12" class="pt-0">
-                <div class="d-flex flex-wrap ga-2">
-                  <v-chip
-                    v-for="s in servicosSelecionadosForm"
-                    :key="s.id"
-                    size="default"
-                    variant="tonal"
-                    color="primary"
-                    closable
-                    class="font-weight-medium"
-                    @click:close="removerProcedimento(s.id)"
+              <!-- Área com Altura Fixa para Chips dos Procedimentos Selecionados -->
+              <v-col cols="12" class="pt-0 pb-1">
+                <div
+                  class="rounded-lg pa-2 border overflow-y-auto"
+                  style="height: 88px; min-height: 88px; max-height: 88px; background-color: #fdfaf9; scrollbar-width: thin;"
+                >
+                  <div v-if="servicosSelecionadosForm.length" class="d-flex flex-wrap ga-2 align-content-start pr-1">
+                    <v-chip
+                      v-for="s in servicosSelecionadosForm"
+                      :key="s.id"
+                      size="default"
+                      variant="tonal"
+                      color="primary"
+                      closable
+                      class="font-weight-medium"
+                      @click:close="removerProcedimento(s.id)"
+                    >
+                      <v-icon start size="16">mdi-sparkles</v-icon>
+                      <span>{{ s.nome }}</span>
+                      <span class="text-caption ml-1 font-weight-regular opacity-80">
+                        ({{ s.duracao_minutos || 30 }} min • R$ {{ formatarMoeda(s.preco) }})
+                      </span>
+                    </v-chip>
+                  </div>
+
+                  <div
+                    v-else
+                    class="d-flex align-center justify-center h-100 text-caption text-grey-darken-1 font-weight-medium"
                   >
-                    <v-icon start size="16">mdi-sparkles</v-icon>
-                    <span>{{ s.nome }}</span>
-                    <span class="text-caption ml-1 font-weight-regular opacity-80">
-                      ({{ s.duracao_minutos || 30 }} min • R$ {{ formatarMoeda(s.preco) }})
-                    </span>
-                  </v-chip>
+                    <v-icon size="16" class="mr-1 text-grey-darken-2">mdi-information-outline</v-icon>
+                    Nenhum procedimento selecionado até o momento
+                  </div>
                 </div>
               </v-col>
 
@@ -473,8 +486,8 @@
                 </v-alert>
               </v-col>
 
-              <!-- Card: Tempo total no salão e Valor Total -->
-              <v-col v-if="servicosSelecionadosForm.length" cols="12" class="pt-0">
+              <!-- Card Fixo: Tempo total no salão e Valor Total -->
+              <v-col cols="12" class="pt-0">
                 <v-sheet
                   color="background"
                   rounded="lg"
@@ -484,11 +497,16 @@
                     <v-icon color="primary" size="22">mdi-clock-time-four-outline</v-icon>
                     <span class="text-body-2 font-weight-medium">
                       Tempo total no salão:
-                      <strong class="text-primary font-weight-bold">{{ duracaoTotalMinutos }} minutos</strong>
+                      <strong class="text-primary font-weight-bold ml-1">
+                        {{ servicosSelecionadosForm.length ? `${duracaoTotalMinutos} minutos` : '--' }}
+                      </strong>
                     </span>
                   </div>
                   <div class="text-body-2 font-weight-bold text-primary">
-                    Valor Total: R$ {{ formatarMoeda(valorTotalEstimado) }}
+                    Valor Total:
+                    <span class="ml-1">
+                      {{ servicosSelecionadosForm.length ? `R$ ${formatarMoeda(valorTotalEstimado)}` : '--' }}
+                    </span>
                   </div>
                 </v-sheet>
               </v-col>

@@ -436,7 +436,7 @@
               <v-col cols="12" class="pt-0 pb-1">
                 <div
                   class="rounded-lg pa-2 border overflow-y-auto"
-                  style="height: 88px; min-height: 88px; max-height: 88px; background-color: #fdfaf9; scrollbar-width: thin;"
+                  style="height: 88px; min-height: 88px; max-height: 88px; background-color: #FDF5F5; scrollbar-width: thin;"
                 >
                   <div v-if="servicosSelecionadosForm.length" class="d-flex flex-wrap ga-2 align-content-start pr-1">
                     <v-chip
@@ -659,7 +659,7 @@
         <div
           v-if="procedimentosTempIds.length > 1"
           class="px-4 py-2 border-b flex-shrink-0 d-flex align-center justify-space-between transition-swing"
-          style="background-color: #faf4f3;"
+          style="background-color: #FFF5F5;"
         >
           <div
             class="d-flex align-center ga-3 cursor-pointer pl-3"
@@ -702,7 +702,7 @@
               variant="outlined"
               rounded="lg"
               class="cursor-pointer transition-swing border flex-shrink-0"
-              :style="procedimentosTempIds.includes(s.id) ? 'background-color: rgba(133, 60, 64, 0.08); border-color: #853C40 !important;' : 'background-color: #ffffff;'"
+              :style="procedimentosTempIds.includes(s.id) ? 'background-color: rgba(168, 28, 44, 0.08); border-color: #A81C2C !important;' : 'background-color: #ffffff;'"
               @click="alternarProcedimentoTemp(s.id)"
             >
               <div class="pa-3 d-flex align-center justify-space-between">

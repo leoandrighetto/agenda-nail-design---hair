@@ -63,9 +63,14 @@
     <!-- Cards de Resumo (KPIs da Agenda) -->
     <v-row class="mb-5">
       <v-col cols="12" sm="4">
-        <v-card elevation="2" rounded="lg" class="pa-4 border-s-lg border-primary">
-          <div class="d-flex align-center justify-space-between">
-            <div>
+        <v-card
+          elevation="2"
+          rounded="lg"
+          class="pa-4 border-s-lg border-primary"
+          style="height: 130px; min-height: 130px; max-height: 130px; overflow-y: auto; scrollbar-width: thin;"
+        >
+          <div class="d-flex align-start justify-space-between">
+            <div class="pr-2 flex-grow-1">
               <div class="text-caption text-grey-darken-1 font-weight-medium text-uppercase">
                 Atendimentos Hoje
               </div>
@@ -81,7 +86,7 @@
                 }}
               </div>
             </div>
-            <v-avatar color="primary" variant="tonal" size="52">
+            <v-avatar color="primary" variant="tonal" size="52" class="flex-shrink-0">
               <v-icon size="28">mdi-calendar-today</v-icon>
             </v-avatar>
           </div>
@@ -89,9 +94,14 @@
       </v-col>
 
       <v-col cols="12" sm="4">
-        <v-card elevation="2" rounded="lg" class="pa-4">
-          <div class="d-flex align-center justify-space-between">
-            <div>
+        <v-card
+          elevation="2"
+          rounded="lg"
+          class="pa-4 border-s-lg border-primary"
+          style="height: 130px; min-height: 130px; max-height: 130px; overflow-y: auto; scrollbar-width: thin;"
+        >
+          <div class="d-flex align-start justify-space-between">
+            <div class="pr-2 flex-grow-1">
               <div class="text-caption text-grey-darken-1 font-weight-medium text-uppercase">
                 Agendamentos em {{ monthName }}
               </div>
@@ -103,7 +113,7 @@
                 {{ pendentesOuConfirmadosMes }} ativo(s) • {{ canceladosMes }} cancelado(s)
               </div>
             </div>
-            <v-avatar color="secondary" variant="tonal" size="52">
+            <v-avatar color="secondary" variant="tonal" size="52" class="flex-shrink-0">
               <v-icon size="28" color="primary">mdi-calendar-month</v-icon>
             </v-avatar>
           </div>
@@ -111,9 +121,14 @@
       </v-col>
 
       <v-col cols="12" sm="4">
-        <v-card elevation="2" rounded="lg" class="pa-4">
-          <div class="d-flex align-center justify-space-between">
-            <div>
+        <v-card
+          elevation="2"
+          rounded="lg"
+          class="pa-4 border-s-lg border-success"
+          style="height: 130px; min-height: 130px; max-height: 130px; overflow-y: auto; scrollbar-width: thin;"
+        >
+          <div class="d-flex align-start justify-space-between">
+            <div class="pr-2 flex-grow-1">
               <div class="text-caption text-grey-darken-1 font-weight-medium text-uppercase">
                 Concluídos no Mês
               </div>
@@ -125,7 +140,7 @@
                 Receita realizada: R$ {{ formatarMoeda(receitaConcluidaMes) }}
               </div>
             </div>
-            <v-avatar color="success" variant="tonal" size="52">
+            <v-avatar color="success" variant="tonal" size="52" class="flex-shrink-0">
               <v-icon size="28">mdi-check-decagram</v-icon>
             </v-avatar>
           </div>
@@ -812,6 +827,7 @@ import ModalNovoProcedimento from '@/components/ModalNovoProcedimento.vue'
 import { useAgendaStore } from '@/stores/agenda'
 import { useAgendaCalendar } from '@/composables/agenda/useAgendaCalendar'
 import { useAgendamentoForm } from '@/composables/agenda/useAgendamentoForm'
+import { useSelecaoProcedimentosModal } from '@/composables/agenda/useSelecaoProcedimentosModal'
 import { useSnackbar } from '@/composables/shared/useSnackbar'
 import { formatarMoeda, formatarDataBr } from '@/utils/shared/formatters'
 import { listarRecursosIndisponiveis } from '@/utils/estoque/estoqueUtils'
@@ -901,62 +917,21 @@ const modalNovoProcedimento = ref(false)
 const carregandoClientes = ref(false)
 const carregandoProcedimentos = ref(false)
 
-// controle do modal de seleção múltipla de procedimentos
-const modalSelecaoProcedimentos = ref(false)
-const procedimentosTempIds = ref([])
-const termoBuscaProcedimentos = ref('')
-const tentouSalvarSemProcedimento = ref(false)
-
-// procedimentos filtrados dinamicamente pela barra de pesquisa do modal
-const procedimentosFiltradosModal = computed(() => {
-  if (!termoBuscaProcedimentos.value) return store.servicos
-  const termo = termoBuscaProcedimentos.value.toLowerCase().trim()
-  return store.servicos.filter((s) => s.nome && s.nome.toLowerCase().includes(termo))
-})
-
-// abre o modal de procedimentos copiando o estado atual já selecionado
-function abrirModalSelecaoProcedimentos() {
-  procedimentosTempIds.value = [...(form.value.servicos_ids || [])]
-  termoBuscaProcedimentos.value = ''
-  modalSelecaoProcedimentos.value = true
-}
-
-// alterna a marcação do checkbox de um procedimento na lista temporária
-function alternarProcedimentoTemp(id) {
-  const index = procedimentosTempIds.value.indexOf(id)
-  if (index > -1) {
-    procedimentosTempIds.value.splice(index, 1)
-  } else {
-    procedimentosTempIds.value.push(id)
-  }
-}
-
-// desmarca todos os procedimentos da lista temporária do modal
-function desmarcarTodosProcedimentosTemp() {
-  procedimentosTempIds.value = []
-}
-
-// confirma a seleção e transfere para o formulário
-function confirmarSelecaoProcedimentos() {
-  form.value.servicos_ids = [...procedimentosTempIds.value]
-  aoSelecionarServico()
-  tentouSalvarSemProcedimento.value = false
-  modalSelecaoProcedimentos.value = false
-}
-
-// cancela a seleção descartando alterações temporárias
-function cancelarSelecaoProcedimentos() {
-  modalSelecaoProcedimentos.value = false
-}
-
-// remove um procedimento diretamente ao clicar no botão fechar do chip
-function removerProcedimento(id) {
-  const index = form.value.servicos_ids.indexOf(id)
-  if (index > -1) {
-    form.value.servicos_ids.splice(index, 1)
-    aoSelecionarServico()
-  }
-}
+// composable dedicado para orquestração da seleção múltipla de procedimentos em modal
+const {
+  modalSelecaoProcedimentos,
+  procedimentosTempIds,
+  termoBuscaProcedimentos,
+  tentouSalvarSemProcedimento,
+  procedimentosFiltradosModal,
+  abrirModalSelecaoProcedimentos,
+  alternarProcedimentoTemp,
+  desmarcarTodosProcedimentosTemp,
+  confirmarSelecaoProcedimentos,
+  cancelarSelecaoProcedimentos,
+  removerProcedimento,
+  registrarProcedimentoCriado,
+} = useSelecaoProcedimentosModal(store, form, aoSelecionarServico)
 
 async function aoSalvarNovoCliente(clienteCriado) {
   carregandoClientes.value = true
@@ -978,12 +953,8 @@ async function aoSalvarNovoProcedimento(procedimentoCriado) {
   try {
     await store.fetchServicos()
     if (procedimentoCriado?.id) {
-      // Se o modal de seleção estiver aberto, já marca na lista temporária
-      if (modalSelecaoProcedimentos.value) {
-        if (!procedimentosTempIds.value.includes(procedimentoCriado.id)) {
-          procedimentosTempIds.value.push(procedimentoCriado.id)
-        }
-      }
+      // Sincroniza marcação caso o modal de seleção esteja aberto
+      registrarProcedimentoCriado(procedimentoCriado.id)
       if (!Array.isArray(form.value.servicos_ids)) {
         form.value.servicos_ids = []
       }

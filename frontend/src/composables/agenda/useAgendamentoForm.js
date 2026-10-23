@@ -16,7 +16,7 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     data: hojeIso,
     hora_inicio: '09:00',
     hora_fim: '10:00',
-    status: 'Pendente',
+    status: 'Confirmado',
   })
 
   const form = ref(padraoForm())

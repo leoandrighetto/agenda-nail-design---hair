@@ -351,8 +351,8 @@
                   <template v-slot:item="{ props, item }">
                     <v-list-item
                       v-bind="props"
-                      :title="item.raw.nome"
-                      :subtitle="item.raw.telefone || 'Sem telefone'"
+                      :title="item.nome"
+                      :subtitle="item.telefone || 'Sem telefone'"
                     ></v-list-item>
                   </template>
                 </v-autocomplete>
@@ -374,21 +374,21 @@
                   @update:model-value="aoSelecionarServico"
                 >
                   <template v-slot:item="{ props, item }">
-                    <v-list-item v-bind="props" :title="item.raw.nome">
+                    <v-list-item v-bind="props" :title="item.nome">
                       <template v-slot:subtitle>
                         <span>
-                          {{ item.raw.duracao_minutos || 30 }} min • R$
-                          {{ formatarMoeda(item.raw.preco) }}
+                          {{ item.duracao_minutos || 30 }} min • R$
+                          {{ formatarMoeda(item.preco) }}
                         </span>
                       </template>
                       <template v-slot:append>
                         <v-chip
-                          :color="item.raw.recursos_disponiveis ? 'success' : 'warning'"
+                          :color="item.recursos_disponiveis ? 'success' : 'warning'"
                           size="x-small"
                           variant="tonal"
                         >
                           {{
-                            item.raw.recursos_disponiveis ? 'Estoque OK' : 'Recurso em falta'
+                            item.recursos_disponiveis ? 'Estoque OK' : 'Recurso em falta'
                           }}
                         </v-chip>
                       </template>
@@ -438,38 +438,35 @@
 
               <!-- Data e Horários -->
               <v-col cols="12" sm="4">
-                <v-text-field
+                <CampoDataHora
                   v-model="form.data"
+                  tipo="date"
                   label="Data *"
-                  type="date"
-                  prepend-inner-icon="mdi-calendar"
                   variant="outlined"
                   :rules="[rules.required]"
-                ></v-text-field>
+                />
               </v-col>
 
               <v-col cols="12" sm="4">
-                <v-text-field
+                <CampoDataHora
                   v-model="form.hora_inicio"
+                  tipo="time"
                   label="Início *"
-                  type="time"
-                  prepend-inner-icon="mdi-clock-start"
                   variant="outlined"
                   :rules="[rules.required]"
                   @update:model-value="recalcularHoraFim"
-                ></v-text-field>
+                />
               </v-col>
 
               <v-col cols="12" sm="4">
-                <v-text-field
+                <CampoDataHora
                   v-model="form.hora_fim"
+                  tipo="time"
                   label="Término previsto"
-                  type="time"
-                  prepend-inner-icon="mdi-clock-end"
                   variant="outlined"
                   hint="Calculado pela duração"
                   persistent-hint
-                ></v-text-field>
+                />
               </v-col>
 
               <!-- Alerta de Conflito de Horário na Agenda -->
@@ -564,6 +561,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
+import CampoDataHora from '@/components/CampoDataHora.vue'
 import { useAgendaStore } from '@/stores/agenda'
 import { useAgendaCalendar } from '@/composables/agenda/useAgendaCalendar'
 import { useAgendamentoForm } from '@/composables/agenda/useAgendamentoForm'

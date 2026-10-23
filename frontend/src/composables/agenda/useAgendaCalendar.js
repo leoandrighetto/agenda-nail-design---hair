@@ -81,6 +81,12 @@ export function useAgendaCalendar(store) {
     return agendamentosDoMes.value
       .filter((ag) => ag.status === 'Concluído')
       .reduce((soma, ag) => {
+        if (ag.valor_total != null) {
+          return soma + Number(ag.valor_total)
+        }
+        if (ag.servicos && Array.isArray(ag.servicos) && ag.servicos.length > 0) {
+          return soma + ag.servicos.reduce((acc, s) => acc + Number(s.preco || 0), 0)
+        }
         const servicoObj = store.servicos.find((s) => s.id === ag.servico_id)
         return soma + (servicoObj?.preco ? Number(servicoObj.preco) : 0)
       }, 0)
@@ -133,4 +139,3 @@ export function useAgendaCalendar(store) {
     irParaHoje,
   }
 }
-

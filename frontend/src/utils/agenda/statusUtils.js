@@ -43,14 +43,18 @@ export function normalizarAgendamento(item) {
   const [, horaFimCompleta] = fimStr.split('T')
   const horaFim = horaFimCompleta ? horaFimCompleta.substring(0, 5) : ''
 
+  let nomeServico = item.servico_nome || 'Serviço não informado'
+  if (item.servicos && Array.isArray(item.servicos) && item.servicos.length > 0) {
+    nomeServico = item.servicos.map((s) => s.nome).join(' + ')
+  }
+
   return {
     ...item,
     data: dataParte || '',
     hora: horaInicio,
     hora_fim: horaFim,
     cliente: item.cliente_nome || 'Cliente não informado',
-    servico: item.servico_nome || 'Serviço não informado',
+    servico: nomeServico,
     color: obterCorPorStatus(item.status),
   }
 }
-

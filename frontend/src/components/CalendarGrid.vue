@@ -2,38 +2,95 @@
   <div class="calendar-wrapper elevation-2">
     <div class="calendar-header bg-primary text-white py-3">
       <v-row no-gutters>
-        <v-col v-for="day in daysOfWeek" :key="day" class="text-center font-weight-bold text-subtitle-1">
+        <v-col
+          v-for="day in daysOfWeek"
+          :key="day"
+          class="text-center font-weight-bold text-subtitle-1"
+        >
           {{ day }}
         </v-col>
       </v-row>
     </div>
+
     <div class="calendar-grid">
-      <div 
-        v-for="(dayObj, index) in calendarDays" 
+      <div
+        v-for="(dayObj, index) in calendarDays"
         :key="index"
         class="calendar-cell"
-        :class="{ 'other-month': !dayObj.isCurrentMonth, 'today': dayObj.isToday }"
+        :class="{
+          'other-month': !dayObj.isCurrentMonth,
+          'today': dayObj.isToday,
+          'clickable-cell': dayObj.isCurrentMonth,
+        }"
+        @click="dayObj.isCurrentMonth && emit('select-date', dayObj.fullDate)"
       >
-        <div class="date-number mb-2 text-right">
-          <span class="date-circle" :class="{ 'bg-primary text-white': dayObj.isToday }">{{ dayObj.date }}</span>
+        <div class="date-header d-flex align-center justify-space-between mb-2">
+          <v-btn
+            v-if="dayObj.isCurrentMonth"
+            icon="mdi-plus"
+            size="x-small"
+            variant="text"
+            color="primary"
+            class="add-day-btn"
+            title="Agendar neste dia"
+            @click.stop="emit('select-date', dayObj.fullDate)"
+          ></v-btn>
+          <span v-else></span>
+
+          <span
+            class="date-circle"
+            :class="{ 'bg-primary text-white font-weight-bold': dayObj.isToday }"
+          >
+            {{ dayObj.date }}
+          </span>
         </div>
-        
+
         <div class="events-container">
-          <v-card 
-            v-for="event in dayObj.events" 
+          <v-card
+            v-for="event in dayObj.events"
             :key="event.id"
             :color="event.color"
             class="event-card mb-1 pa-2"
-            elevation="0"
+            :class="{ 'event-cancelado': event.status === 'Cancelado' }"
+            elevation="1"
             rounded="md"
+            @click.stop="emit('select-event', event)"
           >
-            <div class="d-flex justify-space-between align-center mb-1">
-              <span class="text-caption font-weight-bold text-white">{{ event.hora }}</span>
-              <v-chip size="x-small" color="white" variant="outlined" class="text-white">{{ event.servico }}</v-chip>
+            <div class="d-flex justify-space-between align-center mb-1 ga-1">
+              <div class="d-flex align-center text-caption font-weight-bold text-white text-no-wrap">
+                <v-icon size="13" class="mr-1">{{ iconeStatus(event.status) }}</v-icon>
+                <span>{{ event.hora }}{{ event.hora_fim ? ` - ${event.hora_fim}` : '' }}</span>
+              </div>
+              <v-chip
+                size="x-small"
+                color="white"
+                variant="outlined"
+                class="text-white text-truncate"
+                style="max-width: 95px"
+              >
+                {{ event.servico }}
+              </v-chip>
             </div>
-            <div class="text-caption text-white text-truncate">{{ event.cliente }}</div>
-            <v-tooltip activator="parent" location="top" v-if="event.descricao">
-              {{ event.descricao }}
+
+            <div
+              class="text-caption text-white text-truncate font-weight-medium"
+              :class="{ 'text-decoration-line-through': event.status === 'Cancelado' }"
+            >
+              {{ event.cliente }}
+            </div>
+
+            <v-tooltip activator="parent" location="top">
+              <div class="text-caption">
+                <div class="font-weight-bold">{{ event.cliente }}</div>
+                <div>Serviço: {{ event.servico }}</div>
+                <div>
+                  Horário: {{ event.hora }}{{ event.hora_fim ? ` às ${event.hora_fim}` : '' }}
+                </div>
+                <div>Status: {{ event.status }}</div>
+                <div class="mt-1 text-grey-lighten-2 font-italic">
+                  Clique para editar ou alterar status
+                </div>
+              </div>
             </v-tooltip>
           </v-card>
         </div>
@@ -48,53 +105,75 @@ import { computed } from 'vue'
 const props = defineProps({
   year: { type: Number, required: true },
   month: { type: Number, required: true },
-  events: { type: Array, default: () => [] }
+  events: { type: Array, default: () => [] },
 })
 
+const emit = defineEmits(['select-event', 'select-date'])
+
 const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+// retorna o ícone representativo para cada status do agendamento
+function iconeStatus(status) {
+  switch (status) {
+    case 'Confirmado':
+      return 'mdi-calendar-check'
+    case 'Concluído':
+      return 'mdi-check-decagram'
+    case 'Cancelado':
+      return 'mdi-cancel'
+    case 'Pendente':
+    default:
+      return 'mdi-clock-outline'
+  }
+}
 
 const calendarDays = computed(() => {
   const days = []
   const firstDayOfMonth = new Date(props.year, props.month, 1)
   const lastDayOfMonth = new Date(props.year, props.month + 1, 0)
-  
+
   const startingDayOfWeek = firstDayOfMonth.getDay()
   const daysInMonth = lastDayOfMonth.getDate()
-  
+
   const today = new Date()
-  
+
   const prevMonthLastDay = new Date(props.year, props.month, 0).getDate()
   for (let i = startingDayOfWeek - 1; i >= 0; i--) {
     days.push({
       date: prevMonthLastDay - i,
       isCurrentMonth: false,
       isToday: false,
-      events: []
+      events: [],
     })
   }
-  
+
   for (let i = 1; i <= daysInMonth; i++) {
     const dateString = `${props.year}-${String(props.month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
-    
+
     days.push({
       date: i,
       fullDate: dateString,
       isCurrentMonth: true,
-      isToday: today.getDate() === i && today.getMonth() === props.month && today.getFullYear() === props.year,
-      events: props.events.filter(e => e.data === dateString).sort((a,b) => a.hora.localeCompare(b.hora))
+      isToday:
+        today.getDate() === i &&
+        today.getMonth() === props.month &&
+        today.getFullYear() === props.year,
+      events: props.events
+        .filter((e) => e.data === dateString)
+        .sort((a, b) => a.hora.localeCompare(b.hora)),
     })
   }
-  
+
   const remainingCells = 42 - days.length
   for (let i = 1; i <= remainingCells; i++) {
     days.push({
       date: i,
       isCurrentMonth: false,
       isToday: false,
-      events: []
+      events: [],
     })
   }
-  
+
   return days
 })
 </script>
@@ -108,24 +187,35 @@ const calendarDays = computed(() => {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 130px;
+  grid-auto-rows: 140px;
 }
 .calendar-cell {
-  border-right: 1px solid #F0F0F0;
-  border-bottom: 1px solid #F0F0F0;
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
   padding: 8px;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   overflow-y: auto;
+  transition: background-color 0.15s ease;
 }
 .calendar-cell:nth-child(7n) {
   border-right: none;
 }
+.clickable-cell:hover {
+  background-color: #fdf8f6;
+}
+.add-day-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.clickable-cell:hover .add-day-btn {
+  opacity: 1;
+}
 .other-month {
-  background-color: #F9F9F9;
-  color: #BDBDBD;
+  background-color: #f9f9f9;
+  color: #bdbdbd;
 }
 .today {
-  background-color: #FCF9F8;
+  background-color: #fcf4f2;
 }
 .date-circle {
   display: inline-flex;
@@ -143,18 +233,21 @@ const calendarDays = computed(() => {
 }
 .event-card {
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 .event-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.14) !important;
 }
-/* Scrollbar customizada para células com muitos eventos */
+.event-cancelado {
+  opacity: 0.72;
+}
+/* barra de rolagem customizada para células com muitos eventos */
 .calendar-cell::-webkit-scrollbar {
   width: 4px;
 }
 .calendar-cell::-webkit-scrollbar-thumb {
-  background: #E0E0E0;
+  background: #e0e0e0;
   border-radius: 4px;
 }
 </style>

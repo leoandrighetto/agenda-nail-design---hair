@@ -75,3 +75,38 @@ export function somarMinutosNaHora(horaStr, minutos) {
   return `${String(horasFinais).padStart(2, '0')}:${String(minutosFinais).padStart(2, '0')}`
 }
 
+
+// aplica máscara de data brasileira DD/MM/AAAA enquanto o usuário digita
+export function mascaraData(val) {
+  if (!val) return ''
+  const v = String(val).replace(/\D/g, '').substring(0, 8)
+  if (v.length <= 2) return v
+  if (v.length <= 4) return `${v.substring(0, 2)}/${v.substring(2)}`
+  return `${v.substring(0, 2)}/${v.substring(2, 4)}/${v.substring(4)}`
+}
+
+// aplica máscara de horário HH:MM enquanto o usuário digita
+export function mascaraHora(val) {
+  if (!val) return ''
+  const v = String(val).replace(/\D/g, '').substring(0, 4)
+  if (v.length <= 2) return v
+  return `${v.substring(0, 2)}:${v.substring(2)}`
+}
+
+// converte data brasileira (DD/MM/AAAA) para ISO (YYYY-MM-DD); retorna null se inválida
+export function dataBrParaIso(dataBr) {
+  const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dataBr || '')
+  if (!partes) return null
+  const [, dia, mes, ano] = partes
+  const data = new Date(Number(ano), Number(mes) - 1, Number(dia))
+  const valida =
+    data.getFullYear() === Number(ano) &&
+    data.getMonth() === Number(mes) - 1 &&
+    data.getDate() === Number(dia)
+  return valida ? `${ano}-${mes}-${dia}` : null
+}
+
+// verifica se o texto é um horário válido no formato HH:MM (00:00 a 23:59)
+export function horaValida(hora) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora || '')
+}

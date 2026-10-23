@@ -12,23 +12,49 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
   const padraoForm = () => ({
     id: null,
     cliente_id: null,
-    servico_id: null,
+    servicos_ids: [],
     data: hojeIso,
     hora_inicio: '09:00',
     hora_fim: '10:00',
-    status: 'Pendente',
+    status: 'Confirmado',
   })
 
   const form = ref(padraoForm())
 
   const rules = {
     required: (v) => (v !== null && v !== undefined && v !== '') || 'Campo obrigatório',
+    requiredArray: (v) =>
+      (Array.isArray(v) && v.length > 0) || 'Selecione ao menos um procedimento',
   }
 
-  // serviço selecionado atualmente no formulário de criação/edição
+  // lista de serviços selecionados atualmente no formulário de criação/edição
+  const servicosSelecionadosForm = computed(() => {
+    if (!form.value.servicos_ids || !Array.isArray(form.value.servicos_ids) || form.value.servicos_ids.length === 0) {
+      return []
+    }
+    return store.servicos.filter((s) => form.value.servicos_ids.includes(s.id))
+  })
+
+  // primeiro serviço selecionado (mantido para compatibilidade)
   const servicoSelecionadoForm = computed(() => {
-    if (!form.value.servico_id) return null
-    return store.servicos.find((s) => s.id === form.value.servico_id) || null
+    return servicosSelecionadosForm.value[0] || null
+  })
+
+  // soma da duração em minutos de todos os procedimentos selecionados
+  const duracaoTotalMinutos = computed(() => {
+    if (!servicosSelecionadosForm.value.length) return 30
+    return servicosSelecionadosForm.value.reduce(
+      (total, s) => total + (Number(s.duracao_minutos) || 30),
+      0
+    )
+  })
+
+  // soma dos valores de todos os procedimentos selecionados
+  const valorTotalEstimado = computed(() => {
+    return servicosSelecionadosForm.value.reduce(
+      (total, s) => total + (Number(s.preco) || 0),
+      0
+    )
   })
 
   // verifica se já existe outro agendamento ativo no mesmo intervalo de horário
@@ -49,11 +75,10 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     })
   })
 
-  // recalcula o horário de término com base na duração do serviço escolhido
+  // recalcula o horário de término com base na soma da duração de todos os serviços selecionados
   function recalcularHoraFim() {
     if (!form.value.hora_inicio) return
-    const duracao = servicoSelecionadoForm.value?.duracao_minutos || 30
-    form.value.hora_fim = somarMinutosNaHora(form.value.hora_inicio, duracao)
+    form.value.hora_fim = somarMinutosNaHora(form.value.hora_inicio, duracaoTotalMinutos.value)
   }
 
   function aoSelecionarServico() {
@@ -66,18 +91,32 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     if (typeof dataPreSelecionada === 'string' && dataPreSelecionada) {
       form.value.data = dataPreSelecionada
     }
+    recalcularHoraFim()
   }
 
   // preenche o formulário com os dados de um agendamento existente para edição
   function preencherFormEdicao(evento) {
+    let ids = []
+    if (evento.servicos && Array.isArray(evento.servicos) && evento.servicos.length > 0) {
+      ids = evento.servicos.map((s) => s.id)
+    } else if (evento.servicos_ids && Array.isArray(evento.servicos_ids)) {
+      ids = evento.servicos_ids
+    } else if (evento.servico_id) {
+      ids = [evento.servico_id]
+    }
+
     form.value = {
       id: evento.id,
       cliente_id: evento.cliente_id,
-      servico_id: evento.servico_id,
+      servicos_ids: ids,
       data: evento.data,
       hora_inicio: evento.hora,
       hora_fim: evento.hora_fim || somarMinutosNaHora(evento.hora, 30),
       status: evento.status || 'Pendente',
+    }
+
+    if (!evento.hora_fim) {
+      recalcularHoraFim()
     }
   }
 
@@ -87,9 +126,11 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     try {
       const payload = {
         cliente_id: form.value.cliente_id,
-        servico_id: form.value.servico_id,
+        servicos_ids: form.value.servicos_ids,
+        servico_id: form.value.servicos_ids[0] || null,
         data_hora_inicio: `${form.value.data}T${form.value.hora_inicio}:00`,
         status: form.value.status,
+        valor_total: valorTotalEstimado.value,
       }
 
       if (form.value.hora_fim) {
@@ -156,6 +197,9 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     atualizandoStatus,
     rules,
     servicoSelecionadoForm,
+    servicosSelecionadosForm,
+    duracaoTotalMinutos,
+    valorTotalEstimado,
     conflitoHorario,
     recalcularHoraFim,
     aoSelecionarServico,
@@ -166,4 +210,3 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     executarExclusao,
   }
 }
-

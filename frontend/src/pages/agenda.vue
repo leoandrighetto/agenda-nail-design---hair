@@ -332,7 +332,7 @@
         </v-card-title>
 
         <v-card-text class="pa-6">
-          <v-form ref="formRef" v-model="formValido" @submit.prevent="salvarAgendamento">
+          <v-form ref="formRef" v-model="formValido" autocomplete="off" @submit.prevent="salvarAgendamento">
             <v-row>
               <!-- Seleção de Cliente -->
               <v-col cols="12">
@@ -346,6 +346,13 @@
                   prepend-inner-icon="mdi-account-outline"
                   variant="outlined"
                   clearable
+                  autocomplete="off"
+                  :input-props="{
+                    autocomplete: 'off',
+                    autocorrect: 'off',
+                    autocapitalize: 'off',
+                    spellcheck: false,
+                  }"
                   :loading="carregandoClientes"
                   :rules="[rules.required]"
                   no-data-text="Nenhum cliente encontrado"
@@ -381,6 +388,13 @@
                   prepend-inner-icon="mdi-content-cut"
                   variant="outlined"
                   clearable
+                  autocomplete="off"
+                  :input-props="{
+                    autocomplete: 'off',
+                    autocorrect: 'off',
+                    autocapitalize: 'off',
+                    spellcheck: false,
+                  }"
                   :loading="carregandoProcedimentos"
                   :rules="[rules.required]"
                   no-data-text="Nenhum procedimento cadastrado"

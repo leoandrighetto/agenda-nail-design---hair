@@ -16,7 +16,7 @@
       </v-card-title>
 
       <v-card-text class="pa-6">
-        <v-form ref="formRef" v-model="formValido" @submit.prevent="salvar">
+        <v-form ref="formRef" v-model="formValido" autocomplete="off" @submit.prevent="salvar">
           <v-row density="compact">
             <v-col cols="12">
               <v-text-field

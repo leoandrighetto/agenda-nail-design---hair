@@ -345,6 +345,8 @@
                   placeholder="Digite o nome da cliente..."
                   prepend-inner-icon="mdi-account-outline"
                   variant="outlined"
+                  clearable
+                  :loading="carregandoClientes"
                   :rules="[rules.required]"
                   no-data-text="Nenhum cliente encontrado"
                 >
@@ -355,22 +357,33 @@
                       :subtitle="item.telefone || 'Sem telefone'"
                     ></v-list-item>
                   </template>
+                  <template v-slot:append-item>
+                    <v-divider class="my-1"></v-divider>
+                    <v-list-item
+                      class="text-primary font-weight-bold"
+                      prepend-icon="mdi-account-plus"
+                      title="Cadastrar novo cliente"
+                      @click="modalNovoCliente = true"
+                    ></v-list-item>
+                  </template>
                 </v-autocomplete>
               </v-col>
 
-              <!-- Seleção de Serviço -->
+              <!-- Seleção de Procedimento -->
               <v-col cols="12">
                 <v-autocomplete
                   v-model="form.servico_id"
                   :items="store.servicos"
                   item-title="nome"
                   item-value="id"
-                  label="Serviço / Procedimento *"
+                  label="Procedimento *"
                   placeholder="Selecione o procedimento..."
                   prepend-inner-icon="mdi-content-cut"
                   variant="outlined"
+                  clearable
+                  :loading="carregandoProcedimentos"
                   :rules="[rules.required]"
-                  no-data-text="Nenhum serviço cadastrado"
+                  no-data-text="Nenhum procedimento cadastrado"
                   @update:model-value="aoSelecionarServico"
                 >
                   <template v-slot:item="{ props, item }">
@@ -393,6 +406,15 @@
                         </v-chip>
                       </template>
                     </v-list-item>
+                  </template>
+                  <template v-slot:append-item>
+                    <v-divider class="my-1"></v-divider>
+                    <v-list-item
+                      class="text-primary font-weight-bold"
+                      prepend-icon="mdi-plus-circle-outline"
+                      title="Cadastrar novo procedimento"
+                      @click="modalNovoProcedimento = true"
+                    ></v-list-item>
                   </template>
                 </v-autocomplete>
               </v-col>
@@ -548,6 +570,18 @@
       </v-card>
     </v-dialog>
 
+    <!-- Modal Rápido: Novo Cliente -->
+    <ModalNovoCliente
+      v-model="modalNovoCliente"
+      @salvo="aoSalvarNovoCliente"
+    />
+
+    <!-- Modal Rápido: Novo Procedimento -->
+    <ModalNovoProcedimento
+      v-model="modalNovoProcedimento"
+      @salvo="aoSalvarNovoProcedimento"
+    />
+
     <!-- Snackbar de Feedback -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3500" location="top right">
       {{ snackbarText }}
@@ -559,9 +593,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
 import CampoDataHora from '@/components/CampoDataHora.vue'
+import ModalNovoCliente from '@/components/ModalNovoCliente.vue'
+import ModalNovoProcedimento from '@/components/ModalNovoProcedimento.vue'
 import { useAgendaStore } from '@/stores/agenda'
 import { useAgendaCalendar } from '@/composables/agenda/useAgendaCalendar'
 import { useAgendamentoForm } from '@/composables/agenda/useAgendamentoForm'
@@ -639,6 +675,44 @@ const formRef = ref(null)
 
 const deleteDialog = ref(false)
 const agendamentoParaExcluir = ref(null)
+
+// controle dos modais rápidos de criação e loading reativo dos selects
+const modalNovoCliente = ref(false)
+const modalNovoProcedimento = ref(false)
+const carregandoClientes = ref(false)
+const carregandoProcedimentos = ref(false)
+
+async function aoSalvarNovoCliente(clienteCriado) {
+  carregandoClientes.value = true
+  try {
+    await store.fetchClientes()
+    if (clienteCriado?.id) {
+      form.value.cliente_id = clienteCriado.id
+    }
+    mostrarMensagem(`Cliente "${clienteCriado.nome}" cadastrado com sucesso!`)
+  } catch (err) {
+    mostrarMensagem(err.message || 'Erro ao atualizar lista de clientes', 'error')
+  } finally {
+    carregandoClientes.value = false
+  }
+}
+
+async function aoSalvarNovoProcedimento(procedimentoCriado) {
+  carregandoProcedimentos.value = true
+  try {
+    await store.fetchServicos()
+    if (procedimentoCriado?.id) {
+      form.value.servico_id = procedimentoCriado.id
+      await nextTick()
+      aoSelecionarServico()
+    }
+    mostrarMensagem(`Procedimento "${procedimentoCriado.nome}" cadastrado com sucesso!`)
+  } catch (err) {
+    mostrarMensagem(err.message || 'Erro ao atualizar catálogo de procedimentos', 'error')
+  } finally {
+    carregandoProcedimentos.value = false
+  }
+}
 
 // objetos auxiliares para exibição no modal de detalhes
 const clienteDetalhe = computed(() => {

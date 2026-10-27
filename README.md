@@ -1,4 +1,4 @@
-# Sistema Acadêmico / Agenda de Salão
+# Agenda de Salão
 
 Projeto focado no agendamento de horários e recursos (salas, espaços, profissionais). 
 Esta aplicação está sendo desenvolvida com base em metodologia ágil e versionamento incremental.

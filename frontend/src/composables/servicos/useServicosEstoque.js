@@ -90,10 +90,16 @@ export function useServicosEstoque(showMessage) {
   )
 
   // regras de validação dos formulários de serviços, materiais e equipamentos
-  const servicoNomeRules = [(v) => !!v || 'O nome do serviço é obrigatório']
+  const servicoNomeRules = [
+    (v) => !!(v && String(v).trim()) || 'O nome do serviço é obrigatório',
+  ]
   const servicoDuracaoRules = [(v) => (v && v > 0) || 'Informe a duração']
-  const materialNomeRules = [(v) => !!v || 'O nome do material é obrigatório']
-  const equipamentoNomeRules = [(v) => !!v || 'O nome do equipamento é obrigatório']
+  const materialNomeRules = [
+    (v) => !!(v && String(v).trim()) || 'O nome do material é obrigatório',
+  ]
+  const equipamentoNomeRules = [
+    (v) => !!(v && String(v).trim()) || 'O nome do equipamento é obrigatório',
+  ]
 
   // indicadores computados (KPIs de disponibilidade)
   const servicosComFalta = computed(() => {
@@ -217,6 +223,10 @@ export function useServicosEstoque(showMessage) {
       const { valid } = await servicoFormRef.value.validate()
       if (!valid) return false
     }
+    if (servicoForm.value.preco !== null && servicoForm.value.preco !== '' && Number(servicoForm.value.preco) < 0) {
+      if (showMessage) showMessage('O preço do serviço não pode ser negativo', 'error')
+      return false
+    }
 
     saving.value = true
     const isEdit = Boolean(servicoForm.value.id)
@@ -315,8 +325,11 @@ export function useServicosEstoque(showMessage) {
 
   // ajusta rapidamente a quantidade (+ / -) de um material ou equipamento
   async function adjustQuantity(tipoRecurso, item, delta) {
-    const novaQtd = Math.max(0, (item.quantidade || 0) + delta)
-    const novoDisponivel = novaQtd > 0 ? item.disponivel : false
+    const qtdAnterior = item.quantidade || 0
+    const novaQtd = Math.max(0, qtdAnterior + delta)
+    // se o item estava esgotado (0) e recebeu reposição (+), torna disponível automaticamente
+    const novoDisponivel =
+      novaQtd === 0 ? false : qtdAnterior === 0 && delta > 0 ? true : Boolean(item.disponivel)
     const payload = { quantidade: novaQtd, disponivel: novoDisponivel }
 
     try {

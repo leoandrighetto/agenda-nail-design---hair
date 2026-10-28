@@ -38,13 +38,22 @@ export function useClientes(showMessage, resetAddressSearch = null) {
 
   // regras de validação dos campos do formulário de cliente
   const nameRules = [
-    (v) => !!v || 'Nome é obrigatório',
-    (v) => /^[a-zA-ZÀ-ÿ\s]+$/.test(v) || 'Nome deve conter apenas letras e espaços',
+    (v) => !!(v && String(v).trim()) || 'Nome é obrigatório',
+    (v) =>
+      /^[a-zA-ZÀ-ÿ\s'-]+$/.test(String(v || '').trim()) ||
+      'Nome deve conter apenas letras e espaços',
   ]
 
   const phoneRules = [
-    (v) => !!v || 'Telefone é obrigatório',
-    (v) => (v && String(v).replace(/\D/g, '').length === 11) || 'Telefone deve ter 11 dígitos',
+    (v) => !!(v && String(v).trim()) || 'Telefone é obrigatório',
+    (v) => {
+      const digitos = String(v || '').replace(/\D/g, '')
+      return (
+        digitos.length === 10 ||
+        digitos.length === 11 ||
+        'Telefone deve ter 10 ou 11 dígitos'
+      )
+    },
   ]
 
   const cpfRules = [
@@ -52,7 +61,7 @@ export function useClientes(showMessage, resetAddressSearch = null) {
   ]
 
   const emailRules = [
-    (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido',
+    (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim()) || 'E-mail inválido',
   ]
 
   // aplica máscaras de telefone e CPF durante a digitação
@@ -128,21 +137,22 @@ export function useClientes(showMessage, resetAddressSearch = null) {
     }
   }
 
-  // cria ou atualiza um cliente sanitizando máscaras e endereço antes de enviar ao service
+  // cria ou atualiza um cliente sanitizando espaços, máscaras e endereço antes de enviar ao service
   async function saveCliente() {
     saving.value = true
     const isEdit = Boolean(editedItem.value.id)
     const addressVal = editedItem.value.endereco
+    const enderecoExtraido =
+      typeof addressVal === 'object' && addressVal !== null
+        ? addressVal.formatted_address || addressVal.display_name || ''
+        : addressVal || ''
 
     const payload = {
-      nome: editedItem.value.nome,
+      nome: editedItem.value.nome ? String(editedItem.value.nome).trim() : '',
       telefone: editedItem.value.telefone ? String(editedItem.value.telefone).replace(/\D/g, '') : '',
       cpf: editedItem.value.cpf ? String(editedItem.value.cpf).replace(/\D/g, '') : null,
-      email: editedItem.value.email || null,
-      endereco:
-        typeof addressVal === 'object' && addressVal !== null
-          ? addressVal.formatted_address || addressVal.display_name || ''
-          : addressVal || '',
+      email: editedItem.value.email ? String(editedItem.value.email).trim() : null,
+      endereco: String(enderecoExtraido).trim(),
     }
 
     try {

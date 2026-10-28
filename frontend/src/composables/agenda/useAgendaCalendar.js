@@ -54,9 +54,13 @@ export function useAgendaCalendar(store) {
   })
 
   const proximoAtendimentoHoje = computed(() => {
-    return agendamentosHoje.value.find(
+    const agora = new Date()
+    const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+    const ativosHoje = agendamentosHoje.value.filter(
       (ag) => ag.status === 'Pendente' || ag.status === 'Confirmado'
     )
+    // prioriza o próximo horário a partir do momento atual
+    return ativosHoje.find((ag) => ag.hora >= horaAtual) || ativosHoje[0] || undefined
   })
 
   const agendamentosDoMes = computed(() => {

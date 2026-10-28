@@ -18,9 +18,15 @@ export function useNovoProcedimentoModal(props, emit) {
 
   const dados = ref(padraoDados())
 
-  const regrasNome = [(v) => !!v || 'O nome do procedimento é obrigatório']
+  const regrasNome = [
+    (v) => !!(v && String(v).trim()) || 'O nome do procedimento é obrigatório',
+  ]
 
   const regrasDuracao = [(v) => (v != null && v > 0) || 'Informe a duração em minutos']
+
+  const regrasPreco = [
+    (v) => v === null || v === undefined || v === '' || Number(v) >= 0 || 'O preço não pode ser negativo',
+  ]
 
   // reinicia os campos e a validação sempre que o modal é aberto
   watch(
@@ -37,11 +43,15 @@ export function useNovoProcedimentoModal(props, emit) {
     emit('update:modelValue', false)
   }
 
-  // valida o formulário, formata o payload numérico e persiste o novo procedimento via service
+  // valida o formulário, impede valores negativos, formata o payload numérico e persiste via service
   async function salvar() {
     if (!formRef.value) return
     const { valid } = await formRef.value.validate()
     if (!valid) return
+
+    if (dados.value.preco !== null && dados.value.preco !== '' && Number(dados.value.preco) < 0) {
+      return
+    }
 
     salvando.value = true
     try {
@@ -75,8 +85,8 @@ export function useNovoProcedimentoModal(props, emit) {
     dados,
     regrasNome,
     regrasDuracao,
+    regrasPreco,
     fechar,
     salvar,
   }
 }
-

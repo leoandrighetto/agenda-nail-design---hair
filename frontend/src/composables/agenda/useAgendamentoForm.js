@@ -97,7 +97,7 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
       const inicioNovo = form.value.hora_inicio
       const fimNovo = form.value.hora_fim
       const inicioExistente = ag.hora
-      const fimExistente = ag.hora_fim || ag.hora
+      const fimExistente = ag.hora_fim || somarMinutosNaHora(ag.hora, 30)
 
       return inicioNovo < fimExistente && fimNovo > inicioExistente
     })
@@ -110,8 +110,35 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
   })
 
   const servicoDetalhe = computed(() => {
-    if (!agendamentoSelecionado.value) return null
-    return store.servicos.find((s) => s.id === agendamentoSelecionado.value.servico_id) || null
+    const ag = agendamentoSelecionado.value
+    if (!ag) return null
+
+    // coleta todos os serviços vinculados ao agendamento (múltiplos ou único) a partir do catálogo da store
+    const idsVinculados =
+      Array.isArray(ag.servicos) && ag.servicos.length > 0
+        ? ag.servicos.map((s) => s.id)
+        : ag.servico_id
+          ? [ag.servico_id]
+          : []
+
+    const servicosCatalogo = idsVinculados
+      .map((id) => store.servicos.find((s) => s.id === id) || ag.servicos?.find((s) => s.id === id))
+      .filter(Boolean)
+
+    if (servicosCatalogo.length === 0) return null
+    if (servicosCatalogo.length === 1) return servicosCatalogo[0]
+
+    // consolida disponibilidade e listas de recursos quando há múltiplos procedimentos no agendamento
+    const todosDisponiveis = servicosCatalogo.every((s) => s.recursos_disponiveis !== false)
+    const materiaisAgregados = servicosCatalogo.flatMap((s) => s.materiais || [])
+    const equipamentosAgregados = servicosCatalogo.flatMap((s) => s.equipamentos || [])
+
+    return {
+      ...servicosCatalogo[0],
+      recursos_disponiveis: todosDisponiveis,
+      materiais: materiaisAgregados,
+      equipamentos: equipamentosAgregados,
+    }
   })
 
   // recalcula o horário de término com base na soma da duração de todos os serviços selecionados

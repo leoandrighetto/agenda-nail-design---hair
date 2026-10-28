@@ -2,7 +2,7 @@
  * Utilitários puros de formatação de texto, documentos, moeda, data e horário.
  */
 
-// aplica máscara de telefone brasileiro (00) 00000-0000
+// aplica máscara de telefone brasileiro: (00) 0000-0000 para fixo (10 dígitos) ou (00) 00000-0000 para celular (11 dígitos)
 export function formatPhone(val) {
   if (!val) return ''
   let v = String(val).replace(/\D/g, '')
@@ -10,8 +10,10 @@ export function formatPhone(val) {
 
   if (v.length <= 2) {
     return v.length > 0 ? `(${v}` : v
-  } else if (v.length <= 7) {
+  } else if (v.length <= 6) {
     return `(${v.substring(0, 2)}) ${v.substring(2)}`
+  } else if (v.length <= 10) {
+    return `(${v.substring(0, 2)}) ${v.substring(2, 6)}-${v.substring(6)}`
   } else {
     return `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`
   }
@@ -37,13 +39,17 @@ export function formatCPF(val) {
 // formata valor numérico para moeda BRL com símbolo (R$ 0,00) ou "A consultar"
 export function formatCurrency(val) {
   if (val === null || val === undefined || val === '') return 'A consultar'
-  return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const num = Number(val)
+  if (Number.isNaN(num)) return 'A consultar'
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 // formata valor numérico para decimal brasileiro (0,00) sem o prefixo R$
 export function formatarMoeda(valor) {
   if (valor === null || valor === undefined || valor === '') return '0,00'
-  return Number(valor).toLocaleString('pt-BR', {
+  const num = Number(valor)
+  if (Number.isNaN(num)) return '0,00'
+  return num.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
@@ -51,6 +57,7 @@ export function formatarMoeda(valor) {
 
 // formata minutos totais em representação amigável (ex: 90 -> "1h 30min")
 export function formatDuration(mins) {
+  if (mins === 0 || mins === '0') return '0 min'
   if (!mins) return '30 min'
   if (mins < 60) return `${mins} min`
   const h = Math.floor(mins / 60)
@@ -58,10 +65,11 @@ export function formatDuration(mins) {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
-// converte data ISO (YYYY-MM-DD) para o padrão brasileiro (DD/MM/YYYY)
+// converte data ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss) para o padrão brasileiro (DD/MM/YYYY)
 export function formatarDataBr(dataIso) {
-  if (!dataIso || !dataIso.includes('-')) return dataIso || ''
-  const [ano, mes, dia] = dataIso.split('-')
+  if (!dataIso || !String(dataIso).includes('-')) return dataIso || ''
+  const [apenasData] = String(dataIso).split('T')
+  const [ano, mes, dia] = apenasData.split('-')
   return `${dia}/${mes}/${ano}`
 }
 
@@ -69,12 +77,17 @@ export function formatarDataBr(dataIso) {
 export function somarMinutosNaHora(horaStr, minutos) {
   if (!horaStr || !horaStr.includes(':')) return ''
   const [h, m] = horaStr.split(':').map(Number)
-  const totalMinutos = h * 60 + m + (Number(minutos) || 30)
+  const acrescimo =
+    minutos === 0 || minutos === '0'
+      ? 0
+      : minutos !== null && minutos !== undefined && !Number.isNaN(Number(minutos))
+        ? Number(minutos)
+        : 30
+  const totalMinutos = h * 60 + m + acrescimo
   const horasFinais = Math.floor(totalMinutos / 60) % 24
   const minutosFinais = totalMinutos % 60
   return `${String(horasFinais).padStart(2, '0')}:${String(minutosFinais).padStart(2, '0')}`
 }
-
 
 // aplica máscara de data brasileira DD/MM/AAAA enquanto o usuário digita
 export function mascaraData(val) {

@@ -22,13 +22,22 @@ export function useNovoClienteModal(props, emit) {
 
   // regras de validação dos campos de cliente
   const regrasNome = [
-    (v) => !!v || 'Nome é obrigatório',
-    (v) => /^[a-zA-ZÀ-ÿ\s]+$/.test(v) || 'Nome deve conter apenas letras e espaços',
+    (v) => !!(v && String(v).trim()) || 'Nome é obrigatório',
+    (v) =>
+      /^[a-zA-ZÀ-ÿ\s'-]+$/.test(String(v || '').trim()) ||
+      'Nome deve conter apenas letras e espaços',
   ]
 
   const regrasTelefone = [
-    (v) => !!v || 'Telefone é obrigatório',
-    (v) => (v && String(v).replace(/\D/g, '').length === 11) || 'Telefone deve ter 11 dígitos',
+    (v) => !!(v && String(v).trim()) || 'Telefone é obrigatório',
+    (v) => {
+      const digitos = String(v || '').replace(/\D/g, '')
+      return (
+        digitos.length === 10 ||
+        digitos.length === 11 ||
+        'Telefone deve ter 10 ou 11 dígitos'
+      )
+    },
   ]
 
   const regrasCpf = [
@@ -36,7 +45,7 @@ export function useNovoClienteModal(props, emit) {
   ]
 
   const regrasEmail = [
-    (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido',
+    (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim()) || 'E-mail inválido',
   ]
 
   // aplica máscaras de telefone e CPF ao digitar
@@ -102,4 +111,3 @@ export function useNovoClienteModal(props, emit) {
     salvar,
   }
 }
-

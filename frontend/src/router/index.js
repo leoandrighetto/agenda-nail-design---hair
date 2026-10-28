@@ -10,6 +10,7 @@ import Index from '@/pages/index.vue'
 import Agenda from '@/pages/agenda.vue'
 import Clientes from '@/pages/clientes.vue'
 import Servicos from '@/pages/servicos.vue'
+import Cursos from '@/pages/cursos.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,6 +30,10 @@ const router = createRouter({
     {
       path: '/servicos',
       component: Servicos,
+    },
+    {
+      path: '/cursos',
+      component: Cursos,
     },
   ],
 })

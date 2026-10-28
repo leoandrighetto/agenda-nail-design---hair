@@ -17,6 +17,7 @@
         <v-list-item prepend-icon="mdi-calendar" title="Agenda" value="agenda" to="/agenda"></v-list-item>
         <v-list-item prepend-icon="mdi-account-group" title="Clientes" value="clientes" to="/clientes"></v-list-item>
         <v-list-item prepend-icon="mdi-content-cut" title="Serviços" value="servicos" to="/servicos"></v-list-item>
+        <v-list-item prepend-icon="mdi-school" title="Gestão de Cursos" value="cursos" to="/cursos"></v-list-item>
       </v-list>
     </v-navigation-drawer>
 

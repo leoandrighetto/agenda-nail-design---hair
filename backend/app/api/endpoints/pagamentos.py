@@ -16,7 +16,12 @@ def converter_data(valor_str):
 
 
 def serializar_pagamento(pagamento: Pagamento) -> dict:
-    """ Converte um objeto Pagamento para dicionário. """
+    """ Converte um objeto Pagamento para dicionário incluindo indicador de atraso. """
+    em_atraso = bool(
+        pagamento.status == "PENDENTE"
+        and pagamento.data_vencimento
+        and pagamento.data_vencimento < date.today()
+    )
     return {
         "id": pagamento.id,
         "aluno_id": pagamento.aluno_id,
@@ -26,6 +31,7 @@ def serializar_pagamento(pagamento: Pagamento) -> dict:
         "matricula_id": pagamento.matricula_id,
         "tipo_cobranca": pagamento.tipo_cobranca,
         "status": pagamento.status,
+        "em_atraso": em_atraso,
         "valor_esperado": float(pagamento.valor_esperado) if pagamento.valor_esperado is not None else 0.0,
         "valor_pago": float(pagamento.valor_pago) if pagamento.valor_pago is not None else None,
         "data_vencimento": pagamento.data_vencimento.isoformat() if pagamento.data_vencimento else None,

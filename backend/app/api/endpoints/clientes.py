@@ -132,11 +132,12 @@ def atualizar_cliente(cliente_id):
 
 @clientes_bp.route("/<int:cliente_id>", methods=["DELETE"])
 def deletar_cliente(cliente_id):
-    """ Deleta um cliente existente. """
+    """ Desativa o papel de cliente mantendo o histórico do registro no banco de dados. """
     cliente = db.session.get(Pessoa, cliente_id)
     if not cliente or not cliente.eh_cliente:
         return jsonify({"erro": "Cliente não encontrado"}), 404
 
-    db.session.delete(cliente)
+    # preserva o registro físico e o histórico desativando apenas a flag ativa
+    cliente.eh_cliente = False
     db.session.commit()
     return jsonify({"mensagem": "Cliente deletado com sucesso"}), 200

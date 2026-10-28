@@ -1,9 +1,24 @@
 """ Rotas para a gestão de alunos (Pessoa com eh_aluno=True). """
+from datetime import date
+import random
 from flask import Blueprint, jsonify, request
 from app.extensions import db
 from app.models import Pessoa
 
 alunos_bp = Blueprint("alunos", __name__)
+
+
+def _gerar_matricula_padronizada() -> str:
+    """ Gera uma matrícula única no padrão: ano atual + trimestre atual + 4 dígitos aleatórios. """
+    hoje = date.today()
+    trimestre = (hoje.month - 1) // 3 + 1
+    prefixo = f"{hoje.year}{trimestre}"
+    for _ in range(50):
+        sufixo = f"{random.randint(0, 9999):04d}"
+        codigo = f"{prefixo}{sufixo}"
+        if not Pessoa.query.filter_by(matricula=codigo).first():
+            return codigo
+    return f"{prefixo}{random.randint(1000, 9999)}"
 
 
 def serializar_aluno(aluno: Pessoa) -> dict:
@@ -47,25 +62,33 @@ def get_alunos():
 @alunos_bp.route("", methods=["POST"])
 def criar_aluno():
     """
-    Cria um novo aluno (Pessoa com eh_aluno=True). Nome, telefone e matrícula são obrigatórios.
+    Cria um novo aluno (Pessoa com eh_aluno=True). Nome e telefone são obrigatórios.
+    Se a matrícula não for informada, gera automaticamente no padrão (ano + trimestre + 4 dígitos).
     Caso a pessoa já exista apenas como cliente (mesmo CPF/e-mail ou pessoa_id),
     ativa a flag eh_aluno=True e atribui a matrícula na mesma Pessoa.
     """
     dados = request.get_json()
-    if not dados or not dados.get("nome") or not dados.get("telefone") or not dados.get("matricula"):
-        return jsonify({"erro": "Nome, telefone e matrícula são obrigatórios"}), 400
+    if not dados or not dados.get("nome") or not dados.get("telefone"):
+        return jsonify({"erro": "Nome e telefone são obrigatórios"}), 400
 
-    matricula = dados.get("matricula")
+    matricula_informada = str(dados.get("matricula") or "").strip()
     cpf = dados.get("cpf") or None
     email = dados.get("email") or None
     pessoa_id = dados.get("pessoa_id")
 
-    # verifica se já existe outro aluno com a mesma matrícula
-    aluno_mesma_mat = Pessoa.query.filter_by(matricula=matricula).first()
-    if aluno_mesma_mat:
-        return jsonify({"erro": "Já existe um aluno com esta matrícula"}), 400
-
     pessoa_existente = _buscar_pessoa_existente(cpf, email, pessoa_id)
+
+    # define a matrícula preservando a histórica se já existir ou gerando uma nova padronizada
+    if matricula_informada:
+        matricula = matricula_informada
+        aluno_mesma_mat = Pessoa.query.filter_by(matricula=matricula).first()
+        if aluno_mesma_mat and (not pessoa_existente or aluno_mesma_mat.id != pessoa_existente.id):
+            return jsonify({"erro": "Já existe um aluno com esta matrícula"}), 400
+    elif pessoa_existente and pessoa_existente.matricula:
+        matricula = pessoa_existente.matricula
+    else:
+        matricula = _gerar_matricula_padronizada()
+
     if pessoa_existente and not pessoa_existente.eh_aluno:
         pessoa_existente.eh_aluno = True
         pessoa_existente.matricula = matricula
@@ -81,6 +104,7 @@ def criar_aluno():
         return jsonify({
             "mensagem": "Cliente existente ativado também como aluno com sucesso",
             "id": pessoa_existente.id,
+            "matricula": pessoa_existente.matricula,
         }), 201
 
     novo_aluno = Pessoa(
@@ -96,7 +120,11 @@ def criar_aluno():
     db.session.add(novo_aluno)
     db.session.commit()
 
-    return jsonify({"mensagem": "Aluno criado com sucesso", "id": novo_aluno.id}), 201
+    return jsonify({
+        "mensagem": "Aluno criado com sucesso",
+        "id": novo_aluno.id,
+        "matricula": novo_aluno.matricula,
+    }), 201
 
 
 @alunos_bp.route("/<int:aluno_id>", methods=["GET"])
@@ -140,11 +168,12 @@ def atualizar_aluno(aluno_id):
 
 @alunos_bp.route("/<int:aluno_id>", methods=["DELETE"])
 def deletar_aluno(aluno_id):
-    """ Deleta um aluno existente. """
+    """ Desativa o papel de aluno mantendo o histórico do registro no banco de dados. """
     aluno = db.session.get(Pessoa, aluno_id)
     if not aluno or not aluno.eh_aluno:
         return jsonify({"erro": "Aluno não encontrado"}), 404
 
-    db.session.delete(aluno)
+    # preserva o registro físico e vínculos históricos desativando apenas a flag ativa
+    aluno.eh_aluno = False
     db.session.commit()
     return jsonify({"mensagem": "Aluno deletado com sucesso"}), 200

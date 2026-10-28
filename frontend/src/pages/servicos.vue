@@ -416,9 +416,9 @@
       <v-card rounded="lg">
         <v-card-title class="bg-primary text-white pa-4 d-flex align-center">
           <v-icon start>mdi-content-cut</v-icon>
-          <span class="text-h5">{{ servicoForm.id ? 'Editar Serviço' : 'Novo Serviço' }}</span>
+          <span class="text-h5">{{ servicoFormTitle }}</span>
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" @click="servicoDialog = false">
+          <v-btn icon variant="text" @click="closeServicoDialog">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
@@ -430,7 +430,7 @@
                 <v-text-field
                   v-model="servicoForm.nome"
                   label="Nome do Serviço *"
-                  :rules="[v => !!v || 'O nome do serviço é obrigatório']"
+                  :rules="servicoNomeRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-content-cut"
@@ -446,7 +446,7 @@
                   type="number"
                   min="5"
                   step="5"
-                  :rules="[v => (v && v > 0) || 'Informe a duração']"
+                  :rules="servicoDuracaoRules"
                   variant="outlined"
                   color="primary"
                   prepend-inner-icon="mdi-clock-outline"
@@ -612,7 +612,7 @@
 
         <v-card-actions class="pa-4 pt-0">
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" size="large" @click="servicoDialog = false">
+          <v-btn color="grey-darken-1" variant="text" size="large" @click="closeServicoDialog">
             Cancelar
           </v-btn>
           <v-btn
@@ -634,21 +634,21 @@
       <v-card rounded="lg">
         <v-card-title class="bg-primary text-white pa-4 d-flex align-center">
           <v-icon start>mdi-bottle-tonic-plus-outline</v-icon>
-          <span class="text-h5">{{ materialForm.id ? 'Editar Material' : 'Novo Material' }}</span>
+          <span class="text-h5">{{ materialFormTitle }}</span>
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" @click="materialDialog = false">
+          <v-btn icon variant="text" @click="closeMaterialDialog">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
 
         <v-card-text class="pa-6">
-          <v-form ref="materialFormRef" v-model="materialValid" @submit.prevent="saveMaterial">
+          <v-form ref="materialFormRef" v-model="materialValid" @submit.prevent="saveMaterial()">
             <v-row>
               <v-col cols="12">
                 <v-text-field
                   v-model="materialForm.nome"
                   label="Nome do Material *"
-                  :rules="[v => !!v || 'O nome do material é obrigatório']"
+                  :rules="materialNomeRules"
                   variant="outlined"
                   color="primary"
                   placeholder="Ex: Pó Descolorante, Água Oxigenada, Esmalte Gel"
@@ -664,7 +664,7 @@
                   min="0"
                   variant="outlined"
                   color="primary"
-                  @update:model-value="val => materialForm.disponivel = val > 0"
+                  @update:model-value="aoAlterarQuantidadeMaterial"
                 ></v-text-field>
               </v-col>
 
@@ -694,8 +694,8 @@
 
         <v-card-actions class="pa-4 pt-0">
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" @click="materialDialog = false">Cancelar</v-btn>
-          <v-btn color="primary" variant="flat" :disabled="!materialValid" :loading="saving" @click="saveMaterial">
+          <v-btn color="grey-darken-1" variant="text" @click="closeMaterialDialog">Cancelar</v-btn>
+          <v-btn color="primary" variant="flat" :disabled="!materialValid" :loading="saving" @click="saveMaterial()">
             Salvar Material
           </v-btn>
         </v-card-actions>
@@ -707,21 +707,21 @@
       <v-card rounded="lg">
         <v-card-title class="bg-accent text-white pa-4 d-flex align-center">
           <v-icon start>mdi-hair-dryer-outline</v-icon>
-          <span class="text-h5">{{ equipamentoForm.id ? 'Editar Equipamento' : 'Novo Equipamento' }}</span>
+          <span class="text-h5">{{ equipamentoFormTitle }}</span>
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" @click="equipamentoDialog = false">
+          <v-btn icon variant="text" @click="closeEquipamentoDialog">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
 
         <v-card-text class="pa-6">
-          <v-form ref="equipamentoFormRef" v-model="equipamentoValid" @submit.prevent="saveEquipamento">
+          <v-form ref="equipamentoFormRef" v-model="equipamentoValid" @submit.prevent="saveEquipamento()">
             <v-row>
               <v-col cols="12">
                 <v-text-field
                   v-model="equipamentoForm.nome"
                   label="Nome do Equipamento *"
-                  :rules="[v => !!v || 'O nome do equipamento é obrigatório']"
+                  :rules="equipamentoNomeRules"
                   variant="outlined"
                   color="primary"
                   placeholder="Ex: Secador Taiff, Pincel de Mechas, Cabine LED"
@@ -737,7 +737,7 @@
                   min="0"
                   variant="outlined"
                   color="primary"
-                  @update:model-value="val => equipamentoForm.disponivel = val > 0"
+                  @update:model-value="aoAlterarQuantidadeEquipamento"
                 ></v-text-field>
               </v-col>
 
@@ -767,8 +767,8 @@
 
         <v-card-actions class="pa-4 pt-0">
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" @click="equipamentoDialog = false">Cancelar</v-btn>
-          <v-btn color="primary" variant="flat" :disabled="!equipamentoValid" :loading="saving" @click="saveEquipamento">
+          <v-btn color="grey-darken-1" variant="text" @click="closeEquipamentoDialog">Cancelar</v-btn>
+          <v-btn color="primary" variant="flat" :disabled="!equipamentoValid" :loading="saving" @click="saveEquipamento()">
             Salvar Equipamento
           </v-btn>
         </v-card-actions>
@@ -784,7 +784,7 @@
         </v-card-text>
         <v-card-actions class="pa-4 pt-0">
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" @click="deleteDialog = false">Cancelar</v-btn>
+          <v-btn color="grey-darken-1" variant="text" @click="closeDeleteDialog">Cancelar</v-btn>
           <v-btn color="error" variant="flat" :loading="saving" @click="executeDelete">Sim, Excluir</v-btn>
         </v-card-actions>
       </v-card>
@@ -803,7 +803,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useServicosEstoque } from '@/composables/servicos/useServicosEstoque'
 import { useSnackbar } from '@/composables/shared/useSnackbar'
 import { formatCurrency, formatDuration } from '@/utils/shared/formatters'
@@ -812,51 +812,59 @@ import { isResourceAvailable } from '@/utils/estoque/estoqueUtils'
 // notificações visuais compartilhadas
 const { snackbar, snackbarText, snackbarColor, showMessage } = useSnackbar()
 
-// lógica de negócio de serviços, materiais, equipamentos e KPIs de estoque
+// estado reativo, regras de negócio, validações e controle de modais de serviços e estoque
 const {
   loading,
   saving,
   servicos,
   materiais,
   equipamentos,
+  activeTab,
+  servicoDialog,
+  servicoValid,
+  servicoFormRef,
+  materialDialog,
+  materialValid,
+  materialFormRef,
+  equipamentoDialog,
+  equipamentoValid,
+  equipamentoFormRef,
+  deleteDialog,
+  deleteTarget,
   servicoForm,
   materialForm,
   equipamentoForm,
+  servicoFormTitle,
+  materialFormTitle,
+  equipamentoFormTitle,
+  servicoNomeRules,
+  servicoDuracaoRules,
+  materialNomeRules,
+  equipamentoNomeRules,
   servicosComFalta,
   materiaisEmFalta,
   equipamentosIndisponiveis,
   recursosFaltantesNoFormulario,
+  aoAlterarQuantidadeMaterial,
+  aoAlterarQuantidadeEquipamento,
   fetchAllData,
-  prepareServicoForm,
-  prepareMaterialForm,
-  prepareEquipamentoForm,
-  saveServico: persistirServico,
-  saveMaterial: persistirMaterial,
-  saveEquipamento: persistirEquipamento,
+  openServicoDialog,
+  closeServicoDialog,
+  openMaterialDialog,
+  closeMaterialDialog,
+  openEquipamentoDialog,
+  closeEquipamentoDialog,
+  saveServico,
+  saveMaterial,
+  saveEquipamento,
   adjustQuantity,
   toggleAvailability,
-  deleteRegistro,
+  confirmDelete,
+  closeDeleteDialog,
+  executeDelete,
 } = useServicosEstoque(showMessage)
 
-// estados puramente visuais/UI locais (abas, modais e validação Vuetify)
-const activeTab = ref('servicos')
-
-const servicoDialog = ref(false)
-const servicoValid = ref(false)
-const servicoFormRef = ref(null)
-
-const materialDialog = ref(false)
-const materialValid = ref(false)
-const materialFormRef = ref(null)
-
-const equipamentoDialog = ref(false)
-const equipamentoValid = ref(false)
-const equipamentoFormRef = ref(null)
-
-const deleteDialog = ref(false)
-const deleteTarget = ref({ type: '', id: null, nome: '' })
-
-// cabeçalhos das tabelas
+// cabeçalhos estáticos das tabelas
 const servicoHeaders = [
   { title: 'Procedimento / Descrição', key: 'nome', align: 'start', sortable: true },
   { title: 'Duração', key: 'duracao_minutos', sortable: true, width: '130px' },
@@ -873,67 +881,6 @@ const recursoHeaders = [
   { title: 'Status no Estoque', key: 'disponivel', sortable: true, width: '200px' },
   { title: 'Ações', key: 'acoes', sortable: false, align: 'end', width: '110px' },
 ]
-
-// controle dos modais e disparo de persistência após validação visual do formulário
-const openServicoDialog = (item = null) => {
-  prepareServicoForm(item)
-  servicoDialog.value = true
-}
-
-const saveServico = async () => {
-  if (!servicoFormRef.value) return
-  const { valid } = await servicoFormRef.value.validate()
-  if (!valid) return
-
-  const sucesso = await persistirServico()
-  if (sucesso) {
-    servicoDialog.value = false
-  }
-}
-
-const openMaterialDialog = (item = null) => {
-  prepareMaterialForm(item)
-  materialDialog.value = true
-}
-
-const saveMaterial = async () => {
-  if (!materialFormRef.value) return
-  const { valid } = await materialFormRef.value.validate()
-  if (!valid) return
-
-  const sucesso = await persistirMaterial(servicoDialog.value)
-  if (sucesso) {
-    materialDialog.value = false
-  }
-}
-
-const openEquipamentoDialog = (item = null) => {
-  prepareEquipamentoForm(item)
-  equipamentoDialog.value = true
-}
-
-const saveEquipamento = async () => {
-  if (!equipamentoFormRef.value) return
-  const { valid } = await equipamentoFormRef.value.validate()
-  if (!valid) return
-
-  const sucesso = await persistirEquipamento(servicoDialog.value)
-  if (sucesso) {
-    equipamentoDialog.value = false
-  }
-}
-
-const confirmDelete = (type, item) => {
-  deleteTarget.value = { type, id: item.id, nome: item.nome }
-  deleteDialog.value = true
-}
-
-const executeDelete = async () => {
-  const sucesso = await deleteRegistro(deleteTarget.value.type, deleteTarget.value.id)
-  if (sucesso) {
-    deleteDialog.value = false
-  }
-}
 
 onMounted(() => {
   fetchAllData()

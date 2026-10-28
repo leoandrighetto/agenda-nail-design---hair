@@ -1,13 +1,32 @@
 /**
- * Composable para manipulação do formulário de agendamento, detecção de conflitos de horário e ações de persistência.
+ * Composable para manipulação do formulário de agendamento, controle de modais,
+ * criação rápida de clientes/procedimentos, detecção de conflitos e persistência.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { somarMinutosNaHora } from '@/utils/shared/formatters'
+import { useSelecaoProcedimentosModal } from '@/composables/agenda/useSelecaoProcedimentosModal'
 
 export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
   const salvando = ref(false)
   const excluindo = ref(false)
   const atualizandoStatus = ref(null)
+
+  // estados de visibilidade dos modais e referências de validação
+  const detalheDialog = ref(false)
+  const agendamentoSelecionado = ref(null)
+
+  const agendamentoDialog = ref(false)
+  const formValido = ref(false)
+  const formRef = ref(null)
+
+  const deleteDialog = ref(false)
+  const agendamentoParaExcluir = ref(null)
+
+  // controle dos modais rápidos de criação e estados de carregamento dos selects
+  const modalNovoCliente = ref(false)
+  const modalNovoProcedimento = ref(false)
+  const carregandoClientes = ref(false)
+  const carregandoProcedimentos = ref(false)
 
   const padraoForm = () => ({
     id: null,
@@ -29,7 +48,11 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
 
   // lista de serviços selecionados atualmente no formulário de criação/edição
   const servicosSelecionadosForm = computed(() => {
-    if (!form.value.servicos_ids || !Array.isArray(form.value.servicos_ids) || form.value.servicos_ids.length === 0) {
+    if (
+      !form.value.servicos_ids ||
+      !Array.isArray(form.value.servicos_ids) ||
+      form.value.servicos_ids.length === 0
+    ) {
       return []
     }
     return store.servicos.filter((s) => form.value.servicos_ids.includes(s.id))
@@ -38,6 +61,11 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
   // primeiro serviço selecionado (mantido para compatibilidade)
   const servicoSelecionadoForm = computed(() => {
     return servicosSelecionadosForm.value[0] || null
+  })
+
+  // lista de serviços selecionados no formulário que possuem recursos em falta no estoque
+  const servicosComRecursosEmFalta = computed(() => {
+    return servicosSelecionadosForm.value.filter((s) => !s.recursos_disponiveis)
   })
 
   // soma da duração em minutos de todos os procedimentos selecionados
@@ -75,6 +103,17 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     })
   })
 
+  // objetos auxiliares para exibição detalhada no modal de visualização
+  const clienteDetalhe = computed(() => {
+    if (!agendamentoSelecionado.value) return null
+    return store.clientes.find((c) => c.id === agendamentoSelecionado.value.cliente_id) || null
+  })
+
+  const servicoDetalhe = computed(() => {
+    if (!agendamentoSelecionado.value) return null
+    return store.servicos.find((s) => s.id === agendamentoSelecionado.value.servico_id) || null
+  })
+
   // recalcula o horário de término com base na soma da duração de todos os serviços selecionados
   function recalcularHoraFim() {
     if (!form.value.hora_inicio) return
@@ -84,6 +123,22 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
   function aoSelecionarServico() {
     recalcularHoraFim()
   }
+
+  // integra a seleção múltipla de procedimentos em modal
+  const {
+    modalSelecaoProcedimentos,
+    procedimentosTempIds,
+    termoBuscaProcedimentos,
+    tentouSalvarSemProcedimento,
+    procedimentosFiltradosModal,
+    abrirModalSelecaoProcedimentos,
+    alternarProcedimentoTemp,
+    desmarcarTodosProcedimentosTemp,
+    confirmarSelecaoProcedimentos,
+    cancelarSelecaoProcedimentos,
+    removerProcedimento,
+    registrarProcedimentoCriado,
+  } = useSelecaoProcedimentosModal(store, form, aoSelecionarServico)
 
   // prepara o formulário para um novo agendamento, opcionalmente recebendo a data clicada
   function iniciarNovoForm(dataPreSelecionada = null) {
@@ -120,8 +175,89 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     }
   }
 
-  // salva novo agendamento ou atualiza existente através da store
+  // abertura e transição entre os modais da agenda
+  function abrirNovoAgendamento(dataPreSelecionada = null) {
+    tentouSalvarSemProcedimento.value = false
+    iniciarNovoForm(dataPreSelecionada)
+    agendamentoDialog.value = true
+  }
+
+  function abrirDetalhesAgendamento(evento) {
+    agendamentoSelecionado.value = evento
+    detalheDialog.value = true
+  }
+
+  function abrirEdicaoAgendamento(evento) {
+    detalheDialog.value = false
+    preencherFormEdicao(evento)
+    agendamentoDialog.value = true
+  }
+
+  function confirmarExclusao(evento) {
+    agendamentoParaExcluir.value = evento
+    detalheDialog.value = false
+    deleteDialog.value = true
+  }
+
+  // recarrega clientes e seleciona automaticamente o cliente recém-cadastrado no modal rápido
+  async function aoSalvarNovoCliente(clienteCriado) {
+    carregandoClientes.value = true
+    try {
+      await store.fetchClientes()
+      if (clienteCriado?.id) {
+        form.value.cliente_id = clienteCriado.id
+      }
+      if (mostrarMensagem) {
+        mostrarMensagem(`Cliente "${clienteCriado.nome}" cadastrado com sucesso!`)
+      }
+    } catch (err) {
+      if (mostrarMensagem) {
+        mostrarMensagem(err.message || 'Erro ao atualizar lista de clientes', 'error')
+      }
+    } finally {
+      carregandoClientes.value = false
+    }
+  }
+
+  // recarrega procedimentos e adiciona automaticamente o procedimento recém-cadastrado ao formulário
+  async function aoSalvarNovoProcedimento(procedimentoCriado) {
+    carregandoProcedimentos.value = true
+    try {
+      await store.fetchServicos()
+      if (procedimentoCriado?.id) {
+        registrarProcedimentoCriado(procedimentoCriado.id)
+        if (!Array.isArray(form.value.servicos_ids)) {
+          form.value.servicos_ids = []
+        }
+        if (!form.value.servicos_ids.includes(procedimentoCriado.id)) {
+          form.value.servicos_ids.push(procedimentoCriado.id)
+        }
+        await nextTick()
+        aoSelecionarServico()
+      }
+      if (mostrarMensagem) {
+        mostrarMensagem(`Procedimento "${procedimentoCriado.nome}" cadastrado com sucesso!`)
+      }
+    } catch (err) {
+      if (mostrarMensagem) {
+        mostrarMensagem(err.message || 'Erro ao atualizar catálogo de procedimentos', 'error')
+      }
+    } finally {
+      carregandoProcedimentos.value = false
+    }
+  }
+
+  // valida e salva novo agendamento ou atualiza existente através da store
   async function salvarAgendamento() {
+    if (!form.value.servicos_ids || !form.value.servicos_ids.length) {
+      tentouSalvarSemProcedimento.value = true
+      if (mostrarMensagem) {
+        mostrarMensagem('Selecione ao menos um procedimento para o agendamento.', 'error')
+      }
+      return false
+    }
+    if (!formValido.value) return false
+
     salvando.value = true
     try {
       const payload = {
@@ -144,6 +280,9 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
         await store.criarAgendamento(payload)
         if (mostrarMensagem) mostrarMensagem('Agendamento registrado com sucesso!')
       }
+
+      agendamentoDialog.value = false
+      tentouSalvarSemProcedimento.value = false
       return true
     } catch (err) {
       if (mostrarMensagem) mostrarMensagem(err.message || 'Erro ao salvar agendamento', 'error')
@@ -153,8 +292,9 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     }
   }
 
-  // altera rapidamente o status de um agendamento e retorna o registro atualizado
-  async function alterarStatusRapido(agendamentoAtual, novoStatus) {
+  // altera rapidamente o status de um agendamento e atualiza o registro em foco no modal
+  async function alterarStatusRapido(novoStatus) {
+    const agendamentoAtual = agendamentoSelecionado.value
     if (!agendamentoAtual || agendamentoAtual.status === novoStatus) return null
     atualizandoStatus.value = novoStatus
 
@@ -163,6 +303,9 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
         status: novoStatus,
       })
       const atualizado = store.agendamentos.find((a) => a.id === agendamentoAtual.id) || null
+      if (atualizado) {
+        agendamentoSelecionado.value = atualizado
+      }
       if (mostrarMensagem) mostrarMensagem(`Status alterado para "${novoStatus}"!`)
       return atualizado
     } catch (err) {
@@ -173,14 +316,16 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     }
   }
 
-  // exclui um agendamento pelo identificador através da store
-  async function executarExclusao(agendamentoId) {
-    if (!agendamentoId) return false
+  // exclui o agendamento selecionado através da store e fecha o modal de confirmação
+  async function executarExclusao() {
+    if (!agendamentoParaExcluir.value?.id) return false
     excluindo.value = true
 
     try {
-      await store.deletarAgendamento(agendamentoId)
+      await store.deletarAgendamento(agendamentoParaExcluir.value.id)
       if (mostrarMensagem) mostrarMensagem('Agendamento excluído com sucesso!')
+      deleteDialog.value = false
+      agendamentoParaExcluir.value = null
       return true
     } catch (err) {
       if (mostrarMensagem) mostrarMensagem(err.message || 'Erro ao excluir agendamento', 'error')
@@ -195,16 +340,47 @@ export function useAgendamentoForm(store, hojeIso, mostrarMensagem) {
     salvando,
     excluindo,
     atualizandoStatus,
+    detalheDialog,
+    agendamentoSelecionado,
+    agendamentoDialog,
+    formValido,
+    formRef,
+    deleteDialog,
+    agendamentoParaExcluir,
+    modalNovoCliente,
+    modalNovoProcedimento,
+    carregandoClientes,
+    carregandoProcedimentos,
+    modalSelecaoProcedimentos,
+    procedimentosTempIds,
+    termoBuscaProcedimentos,
+    tentouSalvarSemProcedimento,
+    procedimentosFiltradosModal,
     rules,
     servicoSelecionadoForm,
     servicosSelecionadosForm,
+    servicosComRecursosEmFalta,
     duracaoTotalMinutos,
     valorTotalEstimado,
     conflitoHorario,
+    clienteDetalhe,
+    servicoDetalhe,
     recalcularHoraFim,
     aoSelecionarServico,
     iniciarNovoForm,
     preencherFormEdicao,
+    abrirNovoAgendamento,
+    abrirDetalhesAgendamento,
+    abrirEdicaoAgendamento,
+    confirmarExclusao,
+    abrirModalSelecaoProcedimentos,
+    alternarProcedimentoTemp,
+    desmarcarTodosProcedimentosTemp,
+    confirmarSelecaoProcedimentos,
+    cancelarSelecaoProcedimentos,
+    removerProcedimento,
+    aoSalvarNovoCliente,
+    aoSalvarNovoProcedimento,
     salvarAgendamento,
     alterarStatusRapido,
     executarExclusao,

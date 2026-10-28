@@ -42,7 +42,7 @@
                 maxlength="15"
                 :rules="regrasTelefone"
                 required
-                @update:model-value="(val) => (dados.telefone = formatPhone(val))"
+                @update:model-value="aoAlterarTelefone"
               ></v-text-field>
             </v-col>
 
@@ -56,7 +56,7 @@
                 placeholder="000.000.000-00"
                 maxlength="14"
                 :rules="regrasCpf"
-                @update:model-value="(val) => (dados.cpf = formatCPF(val))"
+                @update:model-value="aoAlterarCpf"
               ></v-text-field>
             </v-col>
 
@@ -109,9 +109,7 @@
 /**
  * Modal rápido de cadastro de cliente sobreposto à agenda.
  */
-import { ref, watch } from 'vue'
-import { criarCliente } from '@/services/clientes/clientesService'
-import { formatPhone, formatCPF } from '@/utils/shared/formatters'
+import { useNovoClienteModal } from '@/composables/clientes/useNovoClienteModal'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -119,76 +117,18 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'salvo'])
 
-const formRef = ref(null)
-const formValido = ref(false)
-const salvando = ref(false)
-
-const padraoDados = () => ({
-  nome: '',
-  telefone: '',
-  cpf: '',
-  email: '',
-  endereco: '',
-})
-
-const dados = ref(padraoDados())
-
-// regras de validação idênticas às regras globais de clientes
-const regrasNome = [
-  (v) => !!v || 'Nome é obrigatório',
-  (v) => /^[a-zA-ZÀ-ÿ\s]+$/.test(v) || 'Nome deve conter apenas letras e espaços',
-]
-
-const regrasTelefone = [
-  (v) => !!v || 'Telefone é obrigatório',
-  (v) => (v && String(v).replace(/\D/g, '').length === 11) || 'Telefone deve ter 11 dígitos',
-]
-
-const regrasCpf = [
-  (v) => !v || String(v).replace(/\D/g, '').length === 11 || 'CPF deve ter 11 dígitos',
-]
-
-const regrasEmail = [
-  (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido',
-]
-
-watch(
-  () => props.modelValue,
-  (aberto) => {
-    if (aberto) {
-      dados.value = padraoDados()
-      if (formRef.value) formRef.value.resetValidation()
-    }
-  },
-)
-
-function fechar() {
-  emit('update:modelValue', false)
-}
-
-async function salvar() {
-  if (!formRef.value) return
-  const { valid } = await formRef.value.validate()
-  if (!valid) return
-
-  salvando.value = true
-  try {
-    const payload = {
-      nome: dados.value.nome.trim(),
-      telefone: dados.value.telefone ? String(dados.value.telefone).replace(/\D/g, '') : '',
-      cpf: dados.value.cpf ? String(dados.value.cpf).replace(/\D/g, '') : null,
-      email: dados.value.email ? dados.value.email.trim() : null,
-      endereco: dados.value.endereco ? dados.value.endereco.trim() : '',
-    }
-
-    const resposta = await criarCliente(payload)
-    emit('salvo', { id: resposta.id, nome: payload.nome, telefone: dados.value.telefone })
-    fechar()
-  } catch (erro) {
-    // erros são tratados pelo caller ou snackbar
-    throw erro
-  } finally {
-    salvando.value = false
-  }
-}
+const {
+  formRef,
+  formValido,
+  salvando,
+  dados,
+  regrasNome,
+  regrasTelefone,
+  regrasCpf,
+  regrasEmail,
+  aoAlterarTelefone,
+  aoAlterarCpf,
+  fechar,
+  salvar,
+} = useNovoClienteModal(props, emit)
 </script>

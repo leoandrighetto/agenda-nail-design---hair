@@ -97,8 +97,7 @@
 /**
  * Modal rápido de cadastro de procedimento/serviço sobreposto à agenda.
  */
-import { ref, watch } from 'vue'
-import { criarServico } from '@/services/servicos/servicosService'
+import { useNovoProcedimentoModal } from '@/composables/servicos/useNovoProcedimentoModal'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -106,67 +105,14 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'salvo'])
 
-const formRef = ref(null)
-const formValido = ref(false)
-const salvando = ref(false)
-
-const padraoDados = () => ({
-  nome: '',
-  duracao_minutos: 30,
-  preco: null,
-  descricao: '',
-})
-
-const dados = ref(padraoDados())
-
-const regrasNome = [
-  (v) => !!v || 'O nome do procedimento é obrigatório',
-]
-
-const regrasDuracao = [
-  (v) => (v != null && v > 0) || 'Informe a duração em minutos',
-]
-
-watch(
-  () => props.modelValue,
-  (aberto) => {
-    if (aberto) {
-      dados.value = padraoDados()
-      if (formRef.value) formRef.value.resetValidation()
-    }
-  },
-)
-
-function fechar() {
-  emit('update:modelValue', false)
-}
-
-async function salvar() {
-  if (!formRef.value) return
-  const { valid } = await formRef.value.validate()
-  if (!valid) return
-
-  salvando.value = true
-  try {
-    const payload = {
-      nome: dados.value.nome.trim(),
-      duracao_minutos: Number(dados.value.duracao_minutos) || 30,
-      preco: dados.value.preco != null && dados.value.preco !== '' ? Number(dados.value.preco) : null,
-      descricao: dados.value.descricao ? dados.value.descricao.trim() : '',
-    }
-
-    const resposta = await criarServico(payload)
-    emit('salvo', {
-      id: resposta.id,
-      nome: payload.nome,
-      preco: payload.preco,
-      duracao_minutos: payload.duracao_minutos,
-    })
-    fechar()
-  } catch (erro) {
-    throw erro
-  } finally {
-    salvando.value = false
-  }
-}
+const {
+  formRef,
+  formValido,
+  salvando,
+  dados,
+  regrasNome,
+  regrasDuracao,
+  fechar,
+  salvar,
+} = useNovoProcedimentoModal(props, emit)
 </script>

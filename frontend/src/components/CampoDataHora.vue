@@ -37,14 +37,7 @@
 /**
  * Campo de data (DD/MM/AAAA) ou horário (HH:MM) digitável, com cursor de texto e seletor nativo acionado pelo ícone.
  */
-import { ref, computed, watch } from 'vue'
-import {
-  mascaraData,
-  mascaraHora,
-  dataBrParaIso,
-  horaValida,
-  formatarDataBr,
-} from '@/utils/shared/formatters'
+import { useCampoDataHora } from '@/composables/shared/useCampoDataHora'
 
 defineOptions({ inheritAttrs: false })
 
@@ -57,73 +50,15 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const ehData = computed(() => props.tipo === 'date')
-const nativoRef = ref(null)
-const texto = ref('')
-
-// converte o valor externo para o texto exibido no campo
-function paraTexto(valor) {
-  if (!valor) return ''
-  return ehData.value ? formatarDataBr(valor) : valor
-}
-
-// converte o texto digitado para o valor externo; retorna null se incompleto/inválido
-function paraValor(textoDigitado) {
-  if (ehData.value) return dataBrParaIso(textoDigitado)
-  return horaValida(textoDigitado) ? textoDigitado : null
-}
-
-// regra de formato somada às regras recebidas do pai
-const regras = computed(() => [
-  ...props.rules,
-  (v) =>
-    !v ||
-    paraValor(v) !== null ||
-    (ehData.value ? 'Data inválida (DD/MM/AAAA)' : 'Horário inválido (HH:MM)'),
-])
-
-// sincroniza o texto quando o valor muda por fora (novo formulário, edição, recálculo)
-watch(
-  () => props.modelValue,
-  (valor) => {
-    if (paraValor(texto.value) !== valor) texto.value = paraTexto(valor)
-  },
-  { immediate: true },
-)
-
-// aplica a máscara e só propaga o valor quando estiver completo e válido
-function aoDigitar(valor) {
-  const mascarado = ehData.value ? mascaraData(valor) : mascaraHora(valor)
-  texto.value = mascarado
-  if (!mascarado) {
-    emit('update:modelValue', '')
-    return
-  }
-  const convertido = paraValor(mascarado)
-  if (convertido !== null && convertido !== props.modelValue) {
-    emit('update:modelValue', convertido)
-  }
-}
-
-// abre o seletor nativo (calendário/relógio) do navegador
-function abrirSeletor() {
-  const nativo = nativoRef.value
-  if (!nativo) return
-  try {
-    nativo.showPicker()
-  } catch {
-    nativo.focus()
-    nativo.click()
-  }
-}
-
-// recebe o valor escolhido no seletor nativo
-function aoEscolherNoSeletor(evento) {
-  const valor = evento.target.value
-  if (!valor) return
-  texto.value = paraTexto(valor)
-  if (valor !== props.modelValue) emit('update:modelValue', valor)
-}
+const {
+  ehData,
+  nativoRef,
+  texto,
+  regras,
+  aoDigitar,
+  abrirSeletor,
+  aoEscolherNoSeletor,
+} = useCampoDataHora(props, emit)
 </script>
 
 <style scoped>

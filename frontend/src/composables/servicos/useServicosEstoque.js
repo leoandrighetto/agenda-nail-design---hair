@@ -1,5 +1,6 @@
 /**
- * Composable responsável pelo gerenciamento de serviços, materiais, equipamentos e indicadores de estoque.
+ * Composable responsável pelo gerenciamento de serviços, materiais, equipamentos,
+ * indicadores de estoque, regras de validação e controle dos formulários/modais.
  */
 import { ref, computed } from 'vue'
 import {
@@ -30,6 +31,24 @@ export function useServicosEstoque(showMessage) {
   const materiais = ref([])
   const equipamentos = ref([])
 
+  // controle de abas, modais e referências de validação dos formulários
+  const activeTab = ref('servicos')
+
+  const servicoDialog = ref(false)
+  const servicoValid = ref(false)
+  const servicoFormRef = ref(null)
+
+  const materialDialog = ref(false)
+  const materialValid = ref(false)
+  const materialFormRef = ref(null)
+
+  const equipamentoDialog = ref(false)
+  const equipamentoValid = ref(false)
+  const equipamentoFormRef = ref(null)
+
+  const deleteDialog = ref(false)
+  const deleteTarget = ref({ type: '', id: null, nome: '' })
+
   const defaultServico = {
     id: null,
     nome: '',
@@ -58,6 +77,23 @@ export function useServicosEstoque(showMessage) {
     disponivel: true,
   }
   const equipamentoForm = ref({ ...defaultEquipamento })
+
+  // títulos dinâmicos dos modais de criação e edição
+  const servicoFormTitle = computed(() =>
+    servicoForm.value.id ? 'Editar Serviço' : 'Novo Serviço'
+  )
+  const materialFormTitle = computed(() =>
+    materialForm.value.id ? 'Editar Material' : 'Novo Material'
+  )
+  const equipamentoFormTitle = computed(() =>
+    equipamentoForm.value.id ? 'Editar Equipamento' : 'Novo Equipamento'
+  )
+
+  // regras de validação dos formulários de serviços, materiais e equipamentos
+  const servicoNomeRules = [(v) => !!v || 'O nome do serviço é obrigatório']
+  const servicoDuracaoRules = [(v) => (v && v > 0) || 'Informe a duração']
+  const materialNomeRules = [(v) => !!v || 'O nome do material é obrigatório']
+  const equipamentoNomeRules = [(v) => !!v || 'O nome do equipamento é obrigatório']
 
   // indicadores computados (KPIs de disponibilidade)
   const servicosComFalta = computed(() => {
@@ -89,6 +125,15 @@ export function useServicosEstoque(showMessage) {
     }
     return faltantes
   })
+
+  // sincroniza automaticamente a flag de disponibilidade ao alterar a quantidade nos formulários
+  function aoAlterarQuantidadeMaterial(val) {
+    materialForm.value.disponivel = Number(val) > 0
+  }
+
+  function aoAlterarQuantidadeEquipamento(val) {
+    equipamentoForm.value.disponivel = Number(val) > 0
+  }
 
   // carrega serviços, materiais e equipamentos em paralelo via services
   async function fetchAllData() {
@@ -138,8 +183,41 @@ export function useServicosEstoque(showMessage) {
     equipamentoForm.value = item ? { ...item } : { ...defaultEquipamento }
   }
 
-  // salva ou atualiza um serviço no catálogo
+  // abre e fecha os modais preparando os formulários correspondentes
+  function openServicoDialog(item = null) {
+    prepareServicoForm(item)
+    servicoDialog.value = true
+  }
+
+  function closeServicoDialog() {
+    servicoDialog.value = false
+  }
+
+  function openMaterialDialog(item = null) {
+    prepareMaterialForm(item)
+    materialDialog.value = true
+  }
+
+  function closeMaterialDialog() {
+    materialDialog.value = false
+  }
+
+  function openEquipamentoDialog(item = null) {
+    prepareEquipamentoForm(item)
+    equipamentoDialog.value = true
+  }
+
+  function closeEquipamentoDialog() {
+    equipamentoDialog.value = false
+  }
+
+  // valida e salva ou atualiza um serviço no catálogo
   async function saveServico() {
+    if (servicoFormRef.value) {
+      const { valid } = await servicoFormRef.value.validate()
+      if (!valid) return false
+    }
+
     saving.value = true
     const isEdit = Boolean(servicoForm.value.id)
     const { id, ...dadosServico } = servicoForm.value
@@ -153,6 +231,7 @@ export function useServicosEstoque(showMessage) {
         showMessage(`Serviço ${isEdit ? 'atualizado' : 'cadastrado'} com sucesso!`)
       }
       await fetchAllData()
+      servicoDialog.value = false
       return true
     } catch (error) {
       if (showMessage) {
@@ -164,8 +243,13 @@ export function useServicosEstoque(showMessage) {
     }
   }
 
-  // salva ou atualiza um material e opcionalmente vincula ao serviço aberto
-  async function saveMaterial(vincularAoServicoAberto = false) {
+  // valida e salva ou atualiza um material e vincula ao serviço caso o modal de serviço esteja aberto
+  async function saveMaterial(vincularAoServicoAberto = servicoDialog.value) {
+    if (materialFormRef.value) {
+      const { valid } = await materialFormRef.value.validate()
+      if (!valid) return false
+    }
+
     saving.value = true
     const isEdit = Boolean(materialForm.value.id)
     const { id, ...dadosMaterial } = materialForm.value
@@ -182,6 +266,7 @@ export function useServicosEstoque(showMessage) {
       if (vincularAoServicoAberto && !isEdit && data && data.id) {
         servicoForm.value.materiais_ids.push(data.id)
       }
+      materialDialog.value = false
       return true
     } catch (error) {
       if (showMessage) {
@@ -193,8 +278,13 @@ export function useServicosEstoque(showMessage) {
     }
   }
 
-  // salva ou atualiza um equipamento e opcionalmente vincula ao serviço aberto
-  async function saveEquipamento(vincularAoServicoAberto = false) {
+  // valida e salva ou atualiza um equipamento e vincula ao serviço caso o modal de serviço esteja aberto
+  async function saveEquipamento(vincularAoServicoAberto = servicoDialog.value) {
+    if (equipamentoFormRef.value) {
+      const { valid } = await equipamentoFormRef.value.validate()
+      if (!valid) return false
+    }
+
     saving.value = true
     const isEdit = Boolean(equipamentoForm.value.id)
     const { id, ...dadosEquipamento } = equipamentoForm.value
@@ -211,6 +301,7 @@ export function useServicosEstoque(showMessage) {
       if (vincularAoServicoAberto && !isEdit && data && data.id) {
         servicoForm.value.equipamentos_ids.push(data.id)
       }
+      equipamentoDialog.value = false
       return true
     } catch (error) {
       if (showMessage) {
@@ -292,29 +383,77 @@ export function useServicosEstoque(showMessage) {
     }
   }
 
+  // abre o modal de confirmação de exclusão para o item selecionado
+  function confirmDelete(type, item) {
+    deleteTarget.value = { type, id: item.id, nome: item.nome }
+    deleteDialog.value = true
+  }
+
+  function closeDeleteDialog() {
+    deleteDialog.value = false
+  }
+
+  // executa a exclusão confirmada no modal e fecha o diálogo em caso de sucesso
+  async function executeDelete() {
+    const sucesso = await deleteRegistro(deleteTarget.value.type, deleteTarget.value.id)
+    if (sucesso) {
+      deleteDialog.value = false
+    }
+    return sucesso
+  }
+
   return {
     loading,
     saving,
     servicos,
     materiais,
     equipamentos,
+    activeTab,
+    servicoDialog,
+    servicoValid,
+    servicoFormRef,
+    materialDialog,
+    materialValid,
+    materialFormRef,
+    equipamentoDialog,
+    equipamentoValid,
+    equipamentoFormRef,
+    deleteDialog,
+    deleteTarget,
     servicoForm,
     materialForm,
     equipamentoForm,
+    servicoFormTitle,
+    materialFormTitle,
+    equipamentoFormTitle,
+    servicoNomeRules,
+    servicoDuracaoRules,
+    materialNomeRules,
+    equipamentoNomeRules,
     servicosComFalta,
     materiaisEmFalta,
     equipamentosIndisponiveis,
     recursosFaltantesNoFormulario,
+    aoAlterarQuantidadeMaterial,
+    aoAlterarQuantidadeEquipamento,
     fetchAllData,
     prepareServicoForm,
     prepareMaterialForm,
     prepareEquipamentoForm,
+    openServicoDialog,
+    closeServicoDialog,
+    openMaterialDialog,
+    closeMaterialDialog,
+    openEquipamentoDialog,
+    closeEquipamentoDialog,
     saveServico,
     saveMaterial,
     saveEquipamento,
     adjustQuantity,
     toggleAvailability,
     deleteRegistro,
+    confirmDelete,
+    closeDeleteDialog,
+    executeDelete,
   }
 }
-

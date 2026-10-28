@@ -67,7 +67,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   :model-value="editedItem.telefone"
-                  @update:model-value="val => editedItem.telefone = formatPhone(val)"
+                  @update:model-value="aoAlterarTelefone"
                   label="Telefone *"
                   :rules="phoneRules"
                   variant="outlined"
@@ -81,7 +81,7 @@
               <v-col cols="12" sm="6">
                 <v-text-field
                   :model-value="editedItem.cpf"
-                  @update:model-value="val => editedItem.cpf = formatCPF(val)"
+                  @update:model-value="aoAlterarCpf"
                   label="CPF"
                   :rules="cpfRules"
                   variant="outlined"
@@ -159,11 +159,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useClientes } from '@/composables/clientes/useClientes'
 import { useAddressAutocomplete } from '@/composables/shared/useAddressAutocomplete'
 import { useSnackbar } from '@/composables/shared/useSnackbar'
-import { formatPhone, formatCPF } from '@/utils/shared/formatters'
 
 // notificações e busca de endereço (composables compartilhados)
 const { snackbar, snackbarText, snackbarColor, showMessage } = useSnackbar()
@@ -175,29 +174,32 @@ const {
   resetAddressSearch,
 } = useAddressAutocomplete()
 
-// estado reativo e regras de negócio de clientes
+// estado reativo, regras de negócio, validações e controle de modais de clientes
 const {
   clientes,
   loading,
   saving,
+  dialog,
+  dialogDelete,
+  valid,
+  form,
   editedItem,
   formTitle,
   nameRules,
   phoneRules,
   cpfRules,
   emailRules,
-  resetEditedItem,
-  setEditedItem,
+  aoAlterarTelefone,
+  aoAlterarCpf,
+  openDialog,
+  editItem,
+  deleteItem,
+  close,
+  closeDelete,
   fetchClientes,
-  saveCliente,
-  deleteCliente,
-} = useClientes(showMessage)
-
-// estados puramente visuais/UI locais dos modais e formulário
-const dialog = ref(false)
-const dialogDelete = ref(false)
-const valid = ref(false)
-const form = ref(null)
+  save,
+  deleteItemConfirm,
+} = useClientes(showMessage, resetAddressSearch)
 
 const headers = [
   { title: 'Nome', key: 'nome', align: 'start', sortable: true },
@@ -206,53 +208,6 @@ const headers = [
   { title: 'E-mail', key: 'email', sortable: false },
   { title: 'Ações', key: 'acoes', sortable: false, align: 'end', width: '120px' },
 ]
-
-// controle de abertura e fechamento dos modais
-const openDialog = () => {
-  resetEditedItem()
-  resetAddressSearch()
-  dialog.value = true
-  if (form.value) form.value.resetValidation()
-}
-
-const editItem = (item) => {
-  setEditedItem(item)
-  resetAddressSearch()
-  dialog.value = true
-}
-
-const deleteItem = (item) => {
-  setEditedItem(item)
-  dialogDelete.value = true
-}
-
-const close = () => {
-  dialog.value = false
-  resetEditedItem()
-  resetAddressSearch()
-  if (form.value) form.value.resetValidation()
-}
-
-const closeDelete = () => {
-  dialogDelete.value = false
-  resetEditedItem()
-}
-
-const deleteItemConfirm = async () => {
-  await deleteCliente()
-  closeDelete()
-}
-
-const save = async () => {
-  if (!form.value) return
-  const { valid: isValid } = await form.value.validate()
-  if (!isValid) return
-
-  const sucesso = await saveCliente()
-  if (sucesso) {
-    close()
-  }
-}
 
 onMounted(() => {
   fetchClientes()

@@ -7,15 +7,15 @@ import 'vuetify/styles'
 const rosadosTheme = {
   dark: false,
   colors: {
-    background: '#FDF5F5', // Fundo off-white com toque sutil rosado/avermelhado
+    background: '#FAF3EC', // Cream (Creme / Off-white)
     surface: '#FFFFFF', // Cards brancos para contraste limpo
-    primary: '#A81C2C', // Vermelho carmim sofisticado e vibrante (sem marrom)
-    secondary: '#DE5D6E', // Rosê avermelhado vivo e elegante
-    accent: '#6B0F1A', // Bordô/vinho tinto profundo
-    info: '#C25968', // Vermelho queimado suave
-    error: '#D32F2F', // Vermelho vivo para alertas
-    success: '#2E7D32',
-    warning: '#ED6C02',
+    primary: '#B76E79', // Rosa Ouro (Rose Gold)
+    secondary: '#F2D4D0', // Blush (Rosa-bebê suave)
+    accent: '#8E5E66', // Mauve (Malva)
+    info: '#B87333', // Copper (Cobre)
+    error: '#D32F2F', // Mantido para feedback visual de erro
+    success: '#2E7D32', // Mantido para feedback visual de sucesso
+    warning: '#ED6C02', // Mantido para feedback visual de aviso
   },
 }
 

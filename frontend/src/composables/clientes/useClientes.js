@@ -1,5 +1,5 @@
 /**
- * Composable responsável pelo estado reativo, validações e regras de negócio de clientes.
+ * Composable responsável pelo estado reativo, validações, máscaras, modais e regras de negócio de clientes.
  */
 import { ref, computed } from 'vue'
 import {
@@ -10,10 +10,16 @@ import {
 } from '@/services/clientes/clientesService'
 import { formatPhone, formatCPF } from '@/utils/shared/formatters'
 
-export function useClientes(showMessage) {
+export function useClientes(showMessage, resetAddressSearch = null) {
   const clientes = ref([])
   const loading = ref(false)
   const saving = ref(false)
+
+  // estados dos modais e referência de validação do formulário
+  const dialog = ref(false)
+  const dialogDelete = ref(false)
+  const valid = ref(false)
+  const form = ref(null)
 
   const defaultItem = {
     id: null,
@@ -49,6 +55,15 @@ export function useClientes(showMessage) {
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'E-mail inválido',
   ]
 
+  // aplica máscaras de telefone e CPF durante a digitação
+  function aoAlterarTelefone(val) {
+    editedItem.value.telefone = formatPhone(val)
+  }
+
+  function aoAlterarCpf(val) {
+    editedItem.value.cpf = formatCPF(val)
+  }
+
   // restaura o item em edição para os valores iniciais em branco
   function resetEditedItem() {
     editedItem.value = { ...defaultItem }
@@ -61,6 +76,37 @@ export function useClientes(showMessage) {
       telefone: formatPhone(item.telefone),
       cpf: formatCPF(item.cpf),
     }
+  }
+
+  // controle de abertura e fechamento dos modais de cadastro/edição e exclusão
+  function openDialog() {
+    resetEditedItem()
+    if (resetAddressSearch) resetAddressSearch()
+    dialog.value = true
+    if (form.value) form.value.resetValidation()
+  }
+
+  function editItem(item) {
+    setEditedItem(item)
+    if (resetAddressSearch) resetAddressSearch()
+    dialog.value = true
+  }
+
+  function deleteItem(item) {
+    setEditedItem(item)
+    dialogDelete.value = true
+  }
+
+  function close() {
+    dialog.value = false
+    resetEditedItem()
+    if (resetAddressSearch) resetAddressSearch()
+    if (form.value) form.value.resetValidation()
+  }
+
+  function closeDelete() {
+    dialogDelete.value = false
+    resetEditedItem()
   }
 
   // carrega a lista de clientes aplicando formatação de telefone e CPF
@@ -121,6 +167,20 @@ export function useClientes(showMessage) {
     }
   }
 
+  // valida o formulário no template e persiste o cliente
+  async function save() {
+    if (form.value) {
+      const { valid: isValid } = await form.value.validate()
+      if (!isValid) return false
+    }
+
+    const sucesso = await saveCliente()
+    if (sucesso) {
+      close()
+    }
+    return sucesso
+  }
+
   // exclui o cliente selecionado e recarrega a listagem
   async function deleteCliente() {
     if (!editedItem.value.id) return false
@@ -142,21 +202,39 @@ export function useClientes(showMessage) {
     }
   }
 
+  // confirma a exclusão no modal e fecha em seguida
+  async function deleteItemConfirm() {
+    await deleteCliente()
+    closeDelete()
+  }
+
   return {
     clientes,
     loading,
     saving,
+    dialog,
+    dialogDelete,
+    valid,
+    form,
     editedItem,
     formTitle,
     nameRules,
     phoneRules,
     cpfRules,
     emailRules,
+    aoAlterarTelefone,
+    aoAlterarCpf,
     resetEditedItem,
     setEditedItem,
+    openDialog,
+    editItem,
+    deleteItem,
+    close,
+    closeDelete,
     fetchClientes,
     saveCliente,
+    save,
     deleteCliente,
+    deleteItemConfirm,
   }
 }
-
